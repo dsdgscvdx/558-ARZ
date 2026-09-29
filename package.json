@@ -1,0 +1,19 @@
+{
+  "name": "arz558-mig29-repair",
+  "version": "2.0.0",
+  "private": true,
+  "description": "558 АРЗ — ремонт МиГ-29БМ: 3D-симулятор авиатехника с ходьбой от первого лица",
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "watch": "node tools/build.mjs --watch",
+    "serve": "npx http-server dist -p 8080 -c-1"
+  },
+  "dependencies": {
+    "three": "0.186.1",
+    "three-mesh-bvh": "0.9.15"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

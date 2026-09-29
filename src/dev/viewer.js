@@ -1,0 +1,34 @@
+// Отладочный просмотрщик модели самолёта (не входит в игру).
+import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import * as T from "../view/tex.js";
+import { buildLibrary } from "../view/materials.js";
+import { buildPaintMaps } from "../view/mig29paint.js";
+import { buildMig29 } from "../view/mig29.js";
+
+const canvas = document.getElementById("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(innerWidth, innerHeight, false);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color("#3a4046");
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = 0.8;
+const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.05, 200);
+const sun = new THREE.DirectionalLight("#fff", 2.2); sun.position.set(6, 14, 8); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 40 }); sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.02;
+scene.add(sun);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: "#777", roughness: 0.8 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+T.TEX.scale = 0.5;
+const tx = { paintedMetal: T.paintedMetalSet(), brushed: T.brushedSet(), tire: T.tireSet(), heat: T.heatTintSet(), fabric: T.fabricSet(), smudge: T.smudgeOrm(), wood: T.woodTex() };
+buildPaintMaps(0.6);
+const L = buildLibrary(tx);
+L.aluDS = L.alu.clone(); L.aluDS.side = THREE.DoubleSide;
+const M = buildMig29(L, { detail: 1 });
+scene.add(M.group);
+window.M = M; window.THREE = THREE;
+window.view = (px, py, pz, tx, ty, tz, fov = 40) => { cam.fov = fov; cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); cam.position.set(px, py, pz); cam.lookAt(tx, ty, tz); renderer.render(scene, cam); return true; };
+window.hide = (ids) => { for (const id of ids) M.parts[id].group.visible = false; };
+window.ready = true;

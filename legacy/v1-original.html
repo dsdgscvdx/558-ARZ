@@ -1,0 +1,1889 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ремонтный цех 558 АРЗ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: полноэкранный 3D-ангар; приборная HUD-планка сверху, инструментальная рейка снизу, карточка детали справа */
+:root{
+  --steel-900:#0d1215; --steel-800:#141b20; --steel-700:#1c262d; --steel-600:#293640; --steel-500:#3a4b56; --steel-400:#5f717c;
+  --fg:#e3e9eb; --muted:#94a5ae;
+  --accent:#e8c04a;           /* жёлтая разметка пола ангара */
+  --accent-ink:#1a1405;
+  --ok:#55c38a; --warn:#f0923a; --crit:#ea4b4b; --info:#72b8da;
+  --by-red:#c8313e; --by-green:#48a456;
+  --phosphor:#7dffa8; --phosphor-dim:#2f7a4c; --crt:#06140c;
+  --panel:rgba(17,24,29,.94); --panel-soft:rgba(17,24,29,.78);
+  --f-display:"Russo One","Arial Black",Impact,sans-serif;
+  --f-body:"IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif;
+  --f-mono:"IBM Plex Mono",Consolas,"Courier New",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--steel-900);color:var(--fg);font-family:var(--f-body);font-size:15px;overflow:hidden;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#app{position:fixed;inset:0}
+#view{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.num{font-variant-numeric:tabular-nums;font-family:var(--f-mono)}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;letter-spacing:.02em;text-wrap:balance;margin:0}
+.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- HUD ---------- */
+.hud{position:absolute;left:0;right:0;top:0;display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;
+  padding:calc(10px + env(safe-area-inset-top,0px)) 16px 22px;background:linear-gradient(var(--panel),rgba(13,18,21,0));pointer-events:none}
+.hud>*{pointer-events:auto}
+.brand{display:flex;align-items:center;gap:10px}
+.brand b{font-family:var(--f-display);font-size:22px;letter-spacing:.04em}
+.flagbar{width:8px;height:26px;background:linear-gradient(var(--by-red) 0 66%,var(--by-green) 66% 100%);border-radius:1px}
+.hstat{display:flex;flex-direction:column;gap:3px;min-width:0}
+.hstat .v{font-size:15px;font-weight:600;white-space:nowrap}
+.xpbar{width:150px;max-width:36vw;height:5px;background:var(--steel-600);border-radius:3px;overflow:hidden}
+.xpbar i{display:block;height:100%;background:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;padding:3px 8px;border-radius:3px;border:1px solid var(--steel-500);color:var(--muted);white-space:nowrap}
+.chip.ok{border-color:var(--ok);color:var(--ok)} .chip.todo{border-color:var(--warn);color:var(--warn)}
+.hud .spacer{flex:1}
+
+/* ---------- нижняя рейка ---------- */
+.rail{position:absolute;left:0;right:0;bottom:0;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;
+  padding:18px 16px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(rgba(13,18,21,0),var(--panel))}
+.tool{display:flex;align-items:center;gap:7px;padding:8px 12px;background:var(--steel-700);border:1px solid var(--steel-500);
+  border-radius:4px;font-size:14px;white-space:nowrap}
+.tool:hover{background:var(--steel-600);border-color:var(--steel-400)}
+.tool kbd{font-family:var(--f-mono);font-size:11px;color:var(--muted);border:1px solid var(--steel-500);border-radius:3px;padding:0 4px}
+.tool.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.tool.on kbd{color:var(--accent-ink);border-color:var(--accent-ink)}
+.tool.hot{border-color:var(--accent);color:var(--accent)}
+
+/* ---------- камера ---------- */
+.cams{position:absolute;left:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:4px}
+.cams button{font-size:12px;padding:5px 9px;background:var(--panel-soft);border:1px solid var(--steel-600);border-radius:3px;text-align:left}
+.cams button:hover{border-color:var(--accent)}
+.hint{position:absolute;left:50%;transform:translateX(-50%);bottom:84px;font-size:13px;color:var(--muted);background:var(--panel-soft);
+  padding:5px 12px;border-radius:3px;pointer-events:none;white-space:nowrap;max-width:calc(100% - 32px);overflow:hidden;text-overflow:ellipsis}
+.tip{position:fixed;pointer-events:none;background:var(--panel);border:1px solid var(--steel-500);padding:6px 10px;border-radius:3px;font-size:13px;z-index:30;max-width:280px}
+.tip small{display:block;color:var(--muted)}
+
+/* ---------- карточка детали ---------- */
+.card{position:absolute;right:16px;top:86px;bottom:92px;width:min(370px,calc(100% - 32px));background:var(--panel);
+  border:1px solid var(--steel-600);border-radius:6px;display:flex;flex-direction:column;overflow:hidden}
+.card header{padding:14px 16px 10px;border-bottom:1px solid var(--steel-600);display:flex;gap:10px;align-items:flex-start}
+.card header h3{font-size:18px;line-height:1.2}
+.card .x{margin-left:auto;background:none;border:0;font-size:22px;line-height:1;color:var(--muted);padding:0 4px}
+.card .body{padding:12px 16px 16px;overflow:auto;display:flex;flex-direction:column;gap:12px;min-height:0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;min-width:0}
+.meter{height:8px;background:var(--steel-600);border-radius:4px;overflow:hidden}
+.meter i{display:block;height:100%}
+.state{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px}
+.state.ok{background:rgba(85,195,138,.16);color:var(--ok)} .state.warn{background:rgba(240,146,58,.16);color:var(--warn)}
+.state.crit{background:rgba(234,75,75,.18);color:var(--crit)} .state.unk{background:var(--steel-600);color:var(--muted)}
+.state.off{background:rgba(114,184,218,.16);color:var(--info)}
+.note{font-size:13px;color:var(--muted);line-height:1.45}
+.defect{font-size:14px;color:var(--crit);line-height:1.4}
+.actions{display:flex;flex-direction:column;gap:6px}
+.btn{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;border-radius:4px;border:1px solid var(--steel-500);
+  background:var(--steel-700);text-align:left;font-size:14px}
+.btn:hover:not(:disabled){border-color:var(--steel-400);background:var(--steel-600)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn small{color:var(--muted);font-family:var(--f-mono);font-size:12px;white-space:nowrap}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.primary small{color:var(--accent-ink)}
+.btn.danger{border-color:var(--crit);color:var(--crit)}
+.btn.inline{display:inline-flex}
+
+/* ---------- модальные окна ---------- */
+.modal{position:absolute;inset:0;background:rgba(6,9,11,.72);display:flex;align-items:center;justify-content:center;padding:16px;z-index:20}
+.sheet{background:var(--steel-800);border:1px solid var(--steel-600);border-radius:6px;width:min(940px,100%);max-height:min(88vh,100%);
+  display:flex;flex-direction:column;overflow:hidden}
+.sheet.narrow{width:min(520px,100%)}
+.sheet>header{padding:16px 18px;border-bottom:1px solid var(--steel-600);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.sheet>header h2{font-size:20px}
+.sheet>header .x{margin-left:auto;background:none;border:0;font-size:24px;color:var(--muted);line-height:1}
+.sheet .content{padding:16px 18px;overflow:auto;display:flex;flex-direction:column;gap:14px;min-height:0}
+.sheet footer{padding:12px 18px;border-top:1px solid var(--steel-600);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.tabs{display:flex;flex-wrap:wrap;gap:4px}
+.tabs button{padding:6px 10px;border:1px solid var(--steel-600);background:none;border-radius:3px;font-size:13px}
+.tabs button.on{border-color:var(--accent);color:var(--accent)}
+.tblwrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{font-weight:500;text-align:left;color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--steel-600)}
+.tbl td{padding:7px 8px;border-bottom:1px solid var(--steel-700);vertical-align:middle}
+.tbl tr.click{cursor:pointer} .tbl tr.click:hover td{background:var(--steel-700)}
+.tbl td.r,.tbl th.r{text-align:right}
+.tbl .sub{color:var(--muted);font-size:12px}
+.tbl .grp td{color:var(--accent);font-family:var(--f-display);font-size:13px;letter-spacing:.04em;padding-top:14px;border-bottom:1px solid var(--steel-600)}
+.mini{padding:4px 9px;font-size:13px;border-radius:3px;border:1px solid var(--steel-500);background:var(--steel-700);white-space:nowrap}
+.mini:hover:not(:disabled){border-color:var(--accent)}
+.mini:disabled{opacity:.4;cursor:not-allowed}
+.mini.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.star{color:var(--accent)}
+
+.missions{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.mcard{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border:1px solid var(--steel-600);border-radius:5px;background:var(--steel-700);text-align:left}
+.mcard:hover:not(.locked){border-color:var(--accent)}
+.mcard.locked{opacity:.5;cursor:not-allowed}
+.mcard h3{font-family:var(--f-body);font-weight:600;font-size:15px;line-height:1.3}
+.mcard .meta{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.mcard .done{color:var(--ok)}
+.order p{margin:0;line-height:1.5;max-width:68ch}
+.order ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.order .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.order .grid div{border:1px solid var(--steel-600);border-radius:4px;padding:8px 10px}
+.order .grid b{display:block;font-size:17px;margin-top:2px}
+.act{font-family:var(--f-mono);font-size:13px}
+.stamp{align-self:flex-start;border:3px solid var(--by-red);color:var(--by-red);font-family:var(--f-display);padding:8px 16px;transform:rotate(-4deg);
+  letter-spacing:.12em;text-align:center;line-height:1.3}
+
+/* ---------- тосты ---------- */
+.toasts{position:absolute;left:50%;transform:translateX(-50%);bottom:120px;display:flex;flex-direction:column;align-items:center;gap:6px;z-index:25;pointer-events:none;width:calc(100% - 32px)}
+.toast{background:var(--panel);border:1px solid var(--steel-500);border-left:4px solid var(--info);padding:8px 14px;border-radius:4px;font-size:14px;max-width:560px;
+  animation:tin .25s ease-out}
+.toast.ok{border-left-color:var(--ok)} .toast.warn{border-left-color:var(--warn)} .toast.crit{border-left-color:var(--crit)} .toast.star{border-left-color:var(--accent)}
+@keyframes tin{from{transform:translateY(8px);opacity:.3}to{transform:none;opacity:1}}
+
+/* ---------- главное меню ---------- */
+.menu{position:absolute;inset:0;z-index:40;display:flex;align-items:center;padding:24px 16px;
+  background:linear-gradient(90deg,rgba(9,13,15,.94) 0%,rgba(9,13,15,.82) 42%,rgba(9,13,15,.1) 75%)}
+.menu .inner{width:min(460px,100%);display:flex;flex-direction:column;gap:18px;margin-left:clamp(0px,6vw,90px)}
+.logo{display:flex;align-items:stretch;gap:14px}
+.logo .flagbar{width:12px;height:auto}
+.logo h1{font-size:clamp(56px,11vw,96px);line-height:.9;letter-spacing:.02em}
+.logo h1 span{display:block;font-size:.34em;letter-spacing:.2em;color:var(--muted);margin-top:8px}
+.menu p{margin:0;line-height:1.5;color:var(--muted);max-width:44ch}
+.menu label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.menu input{padding:10px 12px;background:var(--steel-800);border:1px solid var(--steel-500);border-radius:4px;font-size:16px}
+.menu .row{display:flex;gap:8px;flex-wrap:wrap}
+.menu .btn{flex:1;justify-content:center;font-size:16px;padding:12px 16px;min-width:160px}
+.loading{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+
+/* ---------- гонка двигателей ---------- */
+.eng{position:absolute;inset:0;z-index:15;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between}
+.eng>*{pointer-events:auto}
+.eng .top{display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 10px;background:linear-gradient(var(--panel),rgba(13,18,21,0))}
+.eng .top h2{font-size:18px}
+.stages{display:flex;gap:4px;flex-wrap:wrap}
+.stages span{font-family:var(--f-mono);font-size:12px;padding:3px 8px;border:1px solid var(--steel-500);border-radius:3px;color:var(--muted);position:relative;overflow:hidden}
+.stages span.cur{border-color:var(--accent);color:var(--fg)}
+.stages span.pass{border-color:var(--ok);color:var(--ok)}
+.stages span i{position:absolute;left:0;bottom:0;height:2px;background:var(--accent)}
+.alarm{align-self:center;margin-top:8px;font-family:var(--f-display);font-size:clamp(16px,3vw,24px);letter-spacing:.06em;color:#fff;background:var(--crit);
+  padding:8px 18px;border-radius:4px;animation:blink .6s steps(2) infinite;text-align:center;max-width:calc(100% - 32px)}
+.alarm.warn{background:var(--warn);color:var(--accent-ink);animation:none}
+@keyframes blink{50%{opacity:.55}}
+.dash{background:var(--panel);border-top:1px solid var(--steel-600);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;justify-content:center}
+.dials{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.dials canvas{width:128px;height:128px;background:var(--steel-900);border-radius:50%;border:1px solid var(--steel-600)}
+.lever{display:flex;flex-direction:column;gap:6px;min-width:190px}
+.lever .rud{display:flex;gap:6px}
+.lever .rud button{flex:1;padding:10px 0;font-size:18px;background:var(--steel-700);border:1px solid var(--steel-500);border-radius:4px}
+.lever .rud button:hover{border-color:var(--accent)}
+.log{font-size:13px;color:var(--muted);line-height:1.4;max-height:72px;overflow:auto;max-width:260px}
+.log div:first-child{color:var(--fg)}
+
+/* ---------- РЛС ---------- */
+.radar{position:absolute;inset:0;z-index:18;background:rgba(3,8,5,.88);display:flex;align-items:center;justify-content:center;padding:16px}
+.crt{width:min(880px,100%);max-height:100%;overflow:auto;background:var(--crt);border:2px solid var(--phosphor-dim);border-radius:10px;
+  box-shadow:inset 0 0 60px rgba(0,0,0,.8),0 0 30px rgba(60,255,140,.08);color:var(--phosphor);font-family:var(--f-mono);padding:18px;display:flex;flex-direction:column;gap:14px;
+  background-image:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px)}
+.crt h2{font-family:var(--f-mono);font-weight:600;font-size:16px;letter-spacing:.08em}
+.crt .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.crt button{background:none;border:1px solid var(--phosphor-dim);color:var(--phosphor);padding:6px 12px;border-radius:3px;font-family:var(--f-mono)}
+.crt button:hover:not(:disabled){border-color:var(--phosphor);background:rgba(125,255,168,.08)}
+.crt button:disabled{opacity:.35}
+.term{min-height:190px;max-height:260px;overflow:auto;font-size:13px;line-height:1.5;white-space:pre-wrap}
+.term .err{color:#ff8a7a} .term .dim{color:var(--phosphor-dim)} .term .inv{color:#fff}
+.crt input[type=text]{flex:1;min-width:160px;background:#021008;border:1px solid var(--phosphor-dim);color:var(--phosphor);padding:8px 10px;border-radius:3px;font-family:var(--f-mono);text-transform:uppercase}
+.card-tk{font-size:13px;line-height:1.5;border:1px dashed var(--phosphor-dim);padding:10px 12px;color:#bfffd6}
+.lits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.lit{display:flex;flex-direction:column;gap:8px;align-items:center;border:1px solid var(--phosphor-dim);padding:10px;border-radius:4px}
+.lit canvas{width:100%;height:150px}
+.lit input[type=range]{width:100%;accent-color:var(--phosphor)}
+.bore{display:flex;gap:16px;flex-wrap:wrap;align-items:center;justify-content:center}
+.bore canvas{width:min(320px,100%);aspect-ratio:1;max-width:100%}
+.pad{display:grid;grid-template-columns:repeat(3,48px);gap:6px}
+.pad button{height:44px;font-size:18px;padding:0}
+
+@media (max-width:640px){
+  .hud{gap:6px 14px}
+  .brand b{font-size:18px}
+  .cams{top:auto;bottom:150px;transform:none;flex-direction:row;flex-wrap:wrap;left:16px;right:16px}
+  .card{top:auto;bottom:0;height:58%;width:100%;right:0;border-radius:10px 10px 0 0}
+  .tool{padding:7px 9px;font-size:13px} .tool kbd{display:none}
+  .dials canvas{width:96px;height:96px}
+  .hint{display:none}
+}
+@media (prefers-reduced-motion:reduce){.toast{animation:none}.alarm{animation:none}}
+</style>
+
+<div id="app">
+  <canvas id="view"></canvas>
+
+  <div class="hud" id="hud" hidden>
+    <div class="brand"><span class="flagbar"></span><b>558 АРЗ</b></div>
+    <div class="hstat"><span class="eyebrow" id="hRank">Ученик</span><div class="xpbar"><i id="hXp" style="width:0"></i></div></div>
+    <div class="hstat"><span class="eyebrow">Счёт</span><span class="v num" id="hMoney">0</span></div>
+    <div class="hstat" id="hMissionBox"><span class="eyebrow">Наряд</span><span class="v" id="hMission">—</span></div>
+    <div class="hstat" id="hHoursBox"><span class="eyebrow">Нормо-часы</span><span class="v num" id="hHours">0</span></div>
+    <div class="chips" id="hTests"></div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="cams" id="cams" hidden>
+    <button data-cam="all">Общий вид</button>
+    <button data-cam="nose">Нос · РЛС</button>
+    <button data-cam="cockpit">Кабина</button>
+    <button data-cam="engL">Двигатель №1</button>
+    <button data-cam="engR">Двигатель №2</button>
+    <button data-cam="gear">Шасси · гидро</button>
+    <button data-cam="top">Сверху</button>
+    <button data-cam="tail">Хвост · сопла</button>
+  </div>
+
+  <div class="hint" id="hint" hidden>ЛКМ — выбрать деталь · тянуть — вращать · колесо — масштаб · ПКМ — сдвиг</div>
+
+  <aside class="card" id="card" hidden></aside>
+
+  <nav class="rail" id="rail" hidden>
+    <button class="tool" data-act="board">Наряды <kbd>N</kbd></button>
+    <button class="tool" data-act="order">Задание <kbd>Z</kbd></button>
+    <button class="tool" data-act="inspect" id="tInspect">Режим осмотра <kbd>I</kbd></button>
+    <button class="tool" data-act="sheet">Ведомость <kbd>V</kbd></button>
+    <button class="tool" data-act="shop">Снабжение <kbd>M</kbd></button>
+    <button class="tool" data-act="stock">Склад <kbd>B</kbd></button>
+    <button class="tool" data-act="engine">Гонка РД-33 <kbd>G</kbd></button>
+    <button class="tool" data-act="radar">Настройка РЛС <kbd>R</kbd></button>
+    <button class="tool hot" data-act="otk">Сдать ОТК <kbd>O</kbd></button>
+    <button class="tool" data-act="profile">Личное дело</button>
+    <button class="tool" data-act="help">Справка <kbd>H</kbd></button>
+  </nav>
+
+  <div class="toasts" id="toasts"></div>
+  <div id="modalRoot"></div>
+  <div class="tip" id="tip" hidden></div>
+
+  <section class="eng" id="eng" hidden>
+    <div class="top">
+      <h2 id="engTitle">Газовочная площадка</h2>
+      <div class="stages" id="engStages"></div>
+      <div class="spacer" style="flex:1"></div>
+      <button class="mini" id="engSound">Звук: вкл</button>
+    </div>
+    <div class="alarm" id="engAlarm" hidden></div>
+    <div class="dash">
+      <div class="dials" id="dials">
+        <canvas id="dN" width="256" height="256"></canvas>
+        <canvas id="dT" width="256" height="256"></canvas>
+        <canvas id="dO" width="256" height="256"></canvas>
+        <canvas id="dV" width="256" height="256"></canvas>
+        <canvas id="dH" width="256" height="256"></canvas>
+      </div>
+      <div class="lever">
+        <span class="eyebrow">РУД · режим</span>
+        <b id="engMode" style="font-family:var(--f-display);font-size:20px">МАЛЫЙ ГАЗ</b>
+        <div class="rud"><button id="rudDown" title="Уменьшить режим (S)">▼</button><button id="rudUp" title="Увеличить режим (W)">▲</button></div>
+        <button class="btn primary" id="engFinish" disabled>Завершить гонку <small>охлаждение</small></button>
+        <button class="btn danger" id="engStop">СТОП-КРАН <small>Пробел</small></button>
+        <button class="btn" id="engReport">Доклад техника</button>
+      </div>
+      <div class="log" id="engLog"></div>
+    </div>
+  </section>
+
+  <section class="radar" id="radar" hidden><div class="crt" id="crt"></div></section>
+
+  <section class="menu" id="menu">
+    <div class="inner">
+      <div class="logo"><span class="flagbar"></span><h1>558 АРЗ<span>РЕМОНТ МиГ-29БМ</span></h1></div>
+      <p>Барановичи, ремонтный цех авиационного ремонтного завода. На подъёмниках — истребитель МиГ-29БМ ВВС Беларуси. Найдите неисправности, замените детали, проведите гонку двигателей и настройку РЛС и сдайте самолёт ОТК.</p>
+      <label for="pName">Фамилия авиатехника<input id="pName" maxlength="24" value="Новик" autocomplete="off"></label>
+      <div class="row">
+        <button class="btn primary" id="bNew">Новая игра</button>
+        <button class="btn" id="bCont" hidden>Продолжить</button>
+      </div>
+      <div class="loading" id="loading">Загрузка 3D-движка…</div>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+/* ═════════════════════════ ДАННЫЕ ═════════════════════════ */
+const RANKS = [
+  ["Ученик слесаря-сборщика", 0],
+  ["Слесарь-сборщик авиационной техники 4 разряда", 100],
+  ["Авиатехник-дефектовщик 5 разряда", 300],
+  ["Мастер участка ремонта авиационной техники", 650],
+  ["Ведущий инженер ремонтного цеха", 1250],
+  ["Главный инженер по ремонту 558 АРЗ", 1750],
+];
+const START_MONEY = 8000, OTK_MIN = 50, USED_K = 0.45, LATENT_CHANCE = 0.15;
+const SAVE_KEY = "arz558-mig29bm-v1";
+
+const PT = {
+  radome:{name:"Радиопрозрачный обтекатель РЛС",short:"Обтекатель РЛС",group:"РЛС и СУО",price:4200,rm:1.5,inst:2,used:true,kit:"kit_radome",insp:.8,
+    method:"ультразвуковой контроль стеклопластика и замер радиопрозрачности",clue:"на покрытии обтекателя сетка мелких трещин",
+    info:"Стеклопластиковый конус носовой части. Трещины и расслоения искажают диаграмму направленности антенны."},
+  radar_hf:{name:"Высокочастотный блок РЛС Н019МЭ",short:"ВЧ-блок РЛС Н019МЭ",group:"РЛС и СУО",price:7800,rm:2,inst:2.5,used:true,kit:null,insp:1,
+    method:"проверка на контрольно-проверочной аппаратуре РЛС",clue:"в журнале экипажа записи о пропадании излучения",
+    info:"Передающий тракт РЛС «Топаз». Изношенный блок даёт сильный дрейф частоты."},
+  radar_drive:{name:"Привод антенны РЛС Н019МЭ",short:"Привод антенны РЛС",group:"РЛС и СУО",price:5200,rm:1.5,inst:2,used:true,kit:null,insp:.8,
+    method:"проверка люфтов и токов привода на КПА",clue:"при ручном проворачивании антенны ощущается заедание",
+    info:"Привод сканирования антенны по азимуту и углу места. Износ даёт люфты при юстировке."},
+  suo_harness:{name:"Жгут проводки СУО",short:"Жгут проводки СУО",group:"РЛС и СУО",price:2600,rm:3,inst:3.5,used:true,kit:"kit_harness",insp:1,
+    method:"прозвонка и замер сопротивления изоляции мегаомметром",clue:"в закабинном отсеке запах горелой изоляции",
+    info:"Жгут системы управления оружием: связывает РЛС, БЦВМ и индикацию кабины."},
+  pitot:{name:"Приёмник воздушного давления ПВД",short:"ПВД",group:"Кабина и оборудование",price:900,rm:.5,inst:.7,used:true,kit:null,insp:.5,
+    method:"проверка герметичности трасс и цепи обогрева",clue:"штанга ПВД отклонена от оси",
+    info:"Штанга на носу самолёта: полное и статическое давление для приборов и СУО."},
+  battery:{name:"Бортовая аккумуляторная батарея",short:"Аккумуляторная батарея",group:"Кабина и оборудование",price:1100,rm:.4,inst:.5,used:true,kit:null,insp:1,
+    method:"контрольно-тренировочный цикл разряд-заряд",clue:"на клеммах белый налёт электролита",
+    info:"Аварийный источник питания борта и запуска ВСУ."},
+  seat_pyro:{name:"Пиропатроны катапультного кресла К-36ДМ",short:"Пиропатроны кресла К-36ДМ",group:"Кабина и оборудование",price:1500,rm:1,inst:1.5,used:false,kit:null,insp:.4,
+    method:"сверка сроков по формуляру и проверка пиромеханизмов",clue:"в формуляре кресла истекают сроки пиросредств",
+    info:"Пиросредства системы спасения. Б/У к установке запрещены."},
+  av_hatch:{name:"Панель закабинного отсека",short:"Панель закабинного отсека",group:"Люки и капоты",price:600,rm:.3,inst:.4,used:true,kit:"kit_skin",insp:.3,
+    method:"осмотр панели и проверка замков",clue:"замки панели закрываются с усилием",info:"Доступ к жгутам СУО и аккумулятору."},
+  tank_hatch:{name:"Люк-лаз топливного бака №3",short:"Люк-лаз бака №3",group:"Люки и капоты",price:700,rm:1.2,inst:1,used:true,kit:"kit_skin",insp:.4,
+    method:"контроль прилегания фланца и крепежа",clue:"вокруг люка тёмное пятно от керосина",info:"Снятие включает слив топлива и вентиляцию бака."},
+  tank_seal:{name:"Уплотнения и герметизация бака №3",short:"Уплотнения бака №3",group:"Топливная система",price:1300,rm:2.5,inst:3,used:false,kit:null,insp:1,
+    method:"опрессовка бака и контроль мыльной эмульсией",clue:"у нижней панели запах керосина",info:"Прокладки и герметик швов. Только новые."},
+  fuel_line:{name:"Топливопровод подкачки",short:"Топливопровод подкачки",group:"Топливная система",price:800,rm:1,inst:1.2,used:true,kit:null,insp:.6,
+    method:"опрессовка топливопровода и осмотр развальцовки",clue:"на хомуте влажный след",info:"Магистраль из бака №3 в расходный бак."},
+  hydro_tank:{name:"Гидробак бортовой гидросистемы",short:"Гидробак",group:"Гидросистема",price:3400,rm:2,inst:2.5,used:true,kit:null,insp:.7,
+    method:"опрессовка и контроль уровня АМГ-10",clue:"подтёки красной АМГ-10 в нише",info:"Резервуар гидрожидкости АМГ-10."},
+  hydro_hoses:{name:"Шланги высокого давления гидросистемы",short:"Шланги гидросистемы",group:"Гидросистема",price:1200,rm:1.5,inst:1.5,used:true,kit:"kit_hydro",insp:.6,
+    method:"осмотр оплётки и опрессовка 1,5 рабочего давления",clue:"на оплётке тёмные потёртости",info:"Магистрали к шасси, тормозам и рулевым приводам."},
+  hydro_filter:{name:"Фильтроэлемент гидросистемы",short:"Фильтр гидросистемы",group:"Гидросистема",price:350,rm:.3,inst:.4,used:false,kit:null,insp:.3,
+    method:"замер перепада давления на фильтре",clue:"сигнализатор засорения выдвинут",info:"Сменный элемент, только новый."},
+  wheel:{name:"Колесо КТ-150Д с шиной",short:"Колесо КТ-150Д",group:"Шасси",price:1600,rm:.8,inst:.8,used:true,kit:null,insp:.4,
+    method:"замер протектора и дефектоскопия обода",clue:"на шине «лыска» от юза",info:"Тормозное колесо основной опоры."},
+  brakes:{name:"Тормозные диски шасси",short:"Тормозные диски",group:"Шасси",price:1900,rm:1,inst:1.2,used:true,kit:null,insp:.4,
+    method:"замер износа пакета по контрольному штифту",clue:"штифт износа почти утоплен",info:"Пакет тормозных дисков колеса."},
+  strut:{name:"Амортстойка основной опоры шасси",short:"Амортстойка",group:"Шасси",price:6400,rm:4,inst:5,used:true,kit:"kit_strut",insp:1,
+    method:"замер обжатия, давления азота и контроль штока",clue:"на штоке следы масла",info:"Азотно-масляный амортизатор основной опоры."},
+  stab_act:{name:"Рулевой привод стабилизатора",short:"Привод стабилизатора",group:"Органы управления",price:4600,rm:2,inst:2.5,used:true,kit:"kit_hydro",insp:.8,
+    method:"проверка люфтов и герметичности под давлением",clue:"под приводом капли АМГ-10",info:"Гидропривод цельноповоротной консоли стабилизатора."},
+  cowl:{name:"Капоты мотогондолы",short:"Капоты мотогондолы",group:"Люки и капоты",price:1400,rm:1.5,inst:2,used:true,kit:"kit_skin",insp:.3,
+    method:"осмотр капотов, замков и теплоизоляции",clue:"на капоте следы перегрева краски",info:"Снятие открывает двигатель РД-33."},
+  comp_blades:{name:"Лопатки компрессора РД-33",short:"Лопатки компрессора",group:"Двигатель РД-33",price:5600,rm:3,inst:3.5,used:true,kit:"kit_blend",insp:1,
+    method:"эндоскопия проточной части компрессора",clue:"при прокрутке ротора лёгкий задевающий звук",info:"Забоины повышают вибрацию и грозят помпажем."},
+  turb_blades:{name:"Лопатки турбины РД-33",short:"Лопатки турбины",group:"Двигатель РД-33",price:6900,rm:4,inst:4.5,used:true,kit:null,insp:1,
+    method:"эндоскопия турбины и замер удлинения лопаток",clue:"на срезе сопла окалина и металлизация",info:"Прогар лопаток поднимает температуру газов."},
+  fuel_reg:{name:"Насос-регулятор НР-59А",short:"Насос-регулятор НР-59А",group:"Двигатель РД-33",price:3900,rm:1.5,inst:2,used:true,kit:null,insp:.8,
+    method:"проверка характеристик на стенде",clue:"в записях газовки «плавающие» обороты",info:"Топливная автоматика: разрегулировка даёт заброс температуры и зависание запуска."},
+  oil_pump:{name:"Маслонасос РД-33",short:"Маслонасос",group:"Двигатель РД-33",price:1800,rm:1,inst:1.2,used:true,kit:null,insp:.6,
+    method:"проверка производительности и зазоров",clue:"подтёки масла из дренажа",info:"Изношенный насос не держит давление масла."},
+  oil_filter:{name:"Маслофильтр РД-33",short:"Маслофильтр",group:"Двигатель РД-33",price:300,rm:.3,inst:.3,used:false,kit:null,insp:.3,
+    method:"осмотр фильтроэлемента на стружку",clue:"сигнализатор засорения выдвинут",info:"Сменный элемент, только новый."},
+  nozzle:{name:"Створки реактивного сопла",short:"Створки сопла",group:"Двигатель РД-33",price:3100,rm:2,inst:2.5,used:true,kit:null,insp:.5,
+    method:"осмотр створок, замер зазоров и прогаров",clue:"на створках цвета побежалости",info:"Прогоревшие створки поднимают температуру на форсаже."},
+  ab_injector:{name:"Форсунки форсажной камеры",short:"Форсунки форсажа",group:"Двигатель РД-33",price:1700,rm:1,inst:1.2,used:true,kit:"kit_injector",insp:.6,
+    method:"проливка форсунок и контроль факела",clue:"на стенках форсажной камеры нагар",info:"Закоксованные форсунки — срыв пламени и хлопки при розжиге."},
+};
+const GROUPS = ["РЛС и СУО","Кабина и оборудование","Топливная система","Гидросистема","Шасси","Органы управления","Двигатель РД-33","Люки и капоты"];
+const KITS = {
+  kit_radome:{name:"Ремкомплект обтекателя",price:650,min:40,hours:3,access:false,work:"вклейка стеклоткани, шлифовка и окраска"},
+  kit_harness:{name:"Ремкомплект жгутов",price:420,min:40,hours:2.5,access:true,work:"замена проводов, перепайка контактов, восстановление экрана"},
+  kit_hydro:{name:"Ремкомплект гидроагрегатов",price:380,min:40,hours:2,access:true,work:"замена манжет и колец, опрессовка"},
+  kit_strut:{name:"Ремкомплект амортстойки",price:900,min:45,hours:3.5,access:true,work:"переборка амортизатора, зарядка АМГ-10 и азотом"},
+  kit_blend:{name:"Комплект блендинга лопаток",price:700,min:50,hours:3,access:false,work:"зачистка забоин лопаток через эндоскопический порт"},
+  kit_injector:{name:"Комплект промывки форсунок",price:300,min:35,hours:1.5,access:true,work:"промывка, удаление нагара, проливка"},
+  kit_skin:{name:"Ремкомплект обшивки",price:250,min:35,hours:1.5,access:false,work:"рихтовка, накладка, замена крепежа"},
+};
+const LATENT = ["скрытая усталостная трещина","коррозия под покрытием","выработка поверхностей сверх допуска","следы перегрева материала"];
+
+const ZONES = [["nose","Нос и РЛС"],["cockpit","Кабина и закабинный отсек"],["fuel","Топливная система"],["hydro","Гидросистема"],
+  ["gear","Шасси"],["controls","Стабилизатор"],["engL","Двигатель №1 (левый)"],["engR","Двигатель №2 (правый)"]];
+const ZN = Object.fromEntries(ZONES);
+const SLOTS = [
+  ["radome","radome","","nose",[]],["pitot","pitot","","nose",[]],["radar_hf","radar_hf","","nose",["radome"]],["radar_drive","radar_drive","","nose",["radome"]],
+  ["av_hatch","av_hatch","","cockpit",[]],["suo_harness","suo_harness","","cockpit",["av_hatch"]],["battery","battery","","cockpit",["av_hatch"]],["seat_pyro","seat_pyro","","cockpit",[]],
+  ["tank3_hatch","tank_hatch","","fuel",[]],["tank3_seal","tank_seal","","fuel",["tank3_hatch"]],["fuel_line","fuel_line","","fuel",["tank3_hatch"]],
+  ["hydro_tank","hydro_tank","","hydro",[]],["hydro_hoses","hydro_hoses","","hydro",[]],["hydro_filter","hydro_filter","","hydro",[]],
+  ["wheel_L","wheel","лев.","gear",[]],["brakes_L","brakes","лев.","gear",["wheel_L"]],["strut_L","strut","лев.","gear",["wheel_L","brakes_L"]],
+  ["wheel_R","wheel","прав.","gear",[]],["brakes_R","brakes","прав.","gear",["wheel_R"]],["strut_R","strut","прав.","gear",["wheel_R","brakes_R"]],
+  ["stab_L","stab_act","лев.","controls",[]],["stab_R","stab_act","прав.","controls",[]],
+];
+for (const [s,z,q] of [["L","engL","дв. №1"],["R","engR","дв. №2"]]) SLOTS.push(
+  ["cowl_"+s,"cowl",q,z,[]],["comp_"+s,"comp_blades",q,z,["cowl_"+s]],["turb_"+s,"turb_blades",q,z,["cowl_"+s]],["reg_"+s,"fuel_reg",q,z,["cowl_"+s]],
+  ["oilpump_"+s,"oil_pump",q,z,["cowl_"+s]],["oilfilt_"+s,"oil_filter",q,z,["cowl_"+s]],["nozzle_"+s,"nozzle",q,z,[]],["ab_"+s,"ab_injector",q,z,["nozzle_"+s]]);
+const SID = SLOTS.map(s=>s[0]);
+const ST = {}, SQ = {}, SZ = {}, ACC = {};
+for (const [id,t,q,z,a] of SLOTS){ ST[id]=t; SQ[id]=q; SZ[id]=z; ACC[id]=a; }
+const COVERS = Object.fromEntries(SID.map(id=>[id, SID.filter(o=>ACC[o].includes(id))]));
+const SIDE = {L:["cowl_L","comp_L","turb_L","reg_L","oilpump_L","oilfilt_L","nozzle_L","ab_L"],R:["cowl_R","comp_R","turb_R","reg_R","oilpump_R","oilfilt_R","nozzle_R","ab_R"]};
+const RADAR = ["radome","radar_hf","radar_drive","suo_harness"], FUEL = ["tank3_hatch","tank3_seal","fuel_line"], HYDRO = ["hydro_tank","hydro_hoses","hydro_filter"];
+const GEAR = ["wheel_L","brakes_L","strut_L","wheel_R","brakes_R","strut_R"], CTRL = ["stab_L","stab_R"];
+const TESTS = ["engine_L","engine_R","engine_any","radar"];
+const TEST_NAME = {engine_L:"Гонка двигателя №1",engine_R:"Гонка двигателя №2",engine_any:"Гонка с проверкой гидросистемы",radar:"Настройка РЛС «Топаз»"};
+const TEST_H = {engine_L:1.5,engine_R:1.5,engine_any:1.5,radar:2.5};
+const label = id => PT[ST[id]].short + (SQ[id] ? ", " + SQ[id] : "");
+
+const UNIT = "61-я истребительная авиабаза (Барановичи)";
+const MISSIONS = [
+ {id:"brakes",rank:0,reward:7800,xp:60,title:"Замена тормозных дисков и колеса",
+  story:"После полётов с интенсивным торможением техник звена доложил о предельном износе тормозов левой опоры. На пробеге был юз, на шине левого колеса «лыска». Правый тормозной пакет близок к браковочной риске.",
+  goal:"Заменить изношенные тормоза и колесо, провести контрольную газовку с проверкой гидросистемы и сдать самолёт ОТК.",
+  faults:[["brakes_L",12,24,"износ тормозного пакета за браковочную риску",1],["wheel_L",22,34,"«лыска» на протекторе до корда",1],["brakes_R",34,44,"износ пакета на пределе допуска",1]],
+  hidden:[["hydro_hoses",.3,"микротрещина шланга тормозной магистрали"],["strut_L",.2,"подтекание АМГ-10 по уплотнению штока"]],tests:["engine_any"]},
+ {id:"to100",rank:0,reward:7200,xp:70,title:"Плановое ТО-100 часов",
+  story:"Самолёт выработал очередные 100 часов налёта. По регламенту: замена маслофильтров обоих двигателей и фильтра гидросистемы, замена пиропатронов кресла К-36ДМ по сроку и батареи, не прошедшей контрольный разряд.",
+  goal:"Выполнить регламент ТО-100, провести гонку обоих двигателей и предъявить самолёт ОТК.",
+  faults:[["oilfilt_L",15,25,"фильтр выработал ресурс",0],["oilfilt_R",15,25,"фильтр выработал ресурс",0],["hydro_filter",20,30,"перепад давления выше нормы",0],
+    ["seat_pyro",25,35,"истёк срок службы пиросредств",0],["battery",30,42,"ёмкость ниже 75 %",0]],
+  hidden:[["brakes_R",.3,"износ тормозного пакета"],["nozzle_L",.25,"прогар кромки створки"],["ab_R",.2,"закоксованность форсунок"]],tests:["engine_L","engine_R"]},
+ {id:"hydrotank",rank:1,reward:10500,xp:90,title:"Замена пробитого гидробака",
+  story:"При разрушении колеса правой опоры на пробеге обломок обода пробил гидробак. Самолёт потерял АМГ-10, шланги в нише посечены осколками.",
+  goal:"Заменить гидробак, восстановить шланги, заменить колесо и фильтр, проверить давление в гидросистеме на газовке.",
+  faults:[["hydro_tank",4,14,"пробоина стенки бака",1],["hydro_hoses",36,52,"посечена оплётка, надрывы",1],["wheel_R",5,15,"разрушение обода",1],["hydro_filter",25,35,"забит продуктами разрушения",0]],
+  hidden:[["brakes_R",.35,"трещина диска от удара"],["strut_R",.25,"забоина на штоке амортстойки"]],tests:["engine_any"]},
+ {id:"birdstrike",rank:1,reward:15000,xp:110,title:"Обтекатель РЛС после столкновения с птицей",
+  story:"На взлёте удар крупной птицы пришёлся в радиопрозрачный обтекатель: пробоина и расслоение стеклопластика, штанга ПВД погнута. Лётчик доложил о заедании антенны РЛС по азимуту.",
+  goal:"Восстановить или заменить обтекатель, заменить ПВД, устранить заедание привода антенны, выполнить настройку и юстировку РЛС.",
+  faults:[["radome",38,52,"пробоина и расслоение стеклопластика",1],["pitot",8,18,"штанга погнута, оборван обогрев",1],["radar_drive",42,55,"заклинивание по азимуту",0]],
+  hidden:[["comp_L",.5,"забоины лопаток от остатков птицы"],["comp_R",.25,"мелкие забоины лопаток первой ступени"]],tests:["radar"]},
+ {id:"gear_left",rank:2,reward:17000,xp:130,title:"Ремонт левой стойки шасси после жёсткой посадки",
+  story:"Посадка с боковым ветром: перегрузка на левую основную опору. Амортстойка пробита, шток деформирован, течь АМГ-10 и азота. Повреждены колесо и тормоз, шланги у стойки перетёрты.",
+  goal:"Отремонтировать или заменить амортстойку, заменить колесо и тормоз, восстановить шланги, проверить гидросистему на газовке.",
+  faults:[["strut_L",14,30,"деформация штока, течь амортизатора",1],["wheel_L",25,38,"деформация обода",1],["brakes_L",30,45,"коробление дисков от перегрева",1],["hydro_hoses",42,55,"перетирание шлангов у стойки",1]],
+  hidden:[["stab_L",.3,"люфт в узле крепления привода"],["radar_hf",.3,"отказ после ударной перегрузки"],["battery",.2,"трещина корпуса"]],tests:["engine_any"]},
+ {id:"suo",rank:2,reward:17500,xp:140,title:"Ремонт жгута СУО после короткого замыкания",
+  story:"Экипаж докладывает об отказах РЛС и сбоях индикации. В закабинном отсеке жгут СУО перетёрт о кронштейн, замыкание на корпус. После КЗ нестабилен ВЧ-блок, батарея глубоко разряжена, панель отсека деформирована.",
+  goal:"Отремонтировать или заменить жгут СУО, восстановить ВЧ-блок, заменить батарею и панель, настроить РЛС «Топаз».",
+  faults:[["suo_harness",36,52,"перетирание изоляции, замыкание на корпус",0],["radar_hf",38,48,"нестабильная работа передатчика",0],["battery",20,32,"глубокий разряд, сульфатация",0],["av_hatch",40,55,"деформация панели",1]],
+  hidden:[["pitot",.3,"обрыв цепи обогрева"],["radar_drive",.25,"повышенные токи привода"]],tests:["radar"]},
+ {id:"tank3",rank:2,reward:11000,xp:150,title:"Устранение утечки топлива в баке №3",
+  story:"Под фюзеляжем на стоянке пятно керосина. Течь в районе бака №3: нарушена герметизация уплотнений, фланец люка-лаза покороблен, на топливопроводе трещина развальцовки.",
+  goal:"Слить топливо, вскрыть бак, заменить уплотнения и повреждённые элементы, провести гонку обоих двигателей.",
+  faults:[["tank3_seal",8,22,"течь по уплотнениям и швам",1],["fuel_line",30,44,"трещина развальцовки",0],["tank3_hatch",38,48,"коробление фланца люка",1]],
+  hidden:[["hydro_hoses",.3,"размягчение оплётки от керосина"],["reg_R",.3,"разрегулировка насос-регулятора"]],tests:["engine_L","engine_R"]},
+ {id:"fod",rank:2,reward:12500,xp:150,title:"Компрессор РД-33 после попадания постороннего предмета",
+  story:"При опробовании в правый двигатель попал болт с покрытия стоянки. Эндоскопия показала забоины и загибы лопаток первых ступеней. На маслофильтре мелкая стружка.",
+  goal:"Устранить повреждения компрессора (блендинг или замена), заменить маслофильтр, провести гонку правого двигателя.",
+  faults:[["comp_R",28,54,"забоины и загибы лопаток 1–3 ступеней",0],["oilfilt_R",30,40,"стружка на фильтре",0]],
+  hidden:[["turb_R",.4,"эрозия лопаток турбины от фрагментов"],["nozzle_R",.2,"забоины на створках"]],tests:["engine_R"]},
+ {id:"turbine",rank:3,reward:24000,xp:200,title:"Замена прогоревших лопаток турбины",
+  story:"На левом двигателе зафиксирован заброс температуры газов на форсаже. Эндоскопия: прогар и обрыв бандажных полок лопаток турбины. Причины — закоксованные форсунки форсажа и разрегулировка НР-59А; прогорели створки сопла.",
+  goal:"Заменить лопатки турбины и створки, восстановить форсунки, устранить разрегулировку и выполнить гонку с выходом на форсаж.",
+  faults:[["turb_L",4,18,"прогар пера и обрыв бандажных полок",0],["ab_L",30,44,"закоксовывание форсунок",0],["nozzle_L",30,46,"прогар створок",1],["reg_L",36,48,"разрегулировка, заброс температуры",0]],
+  hidden:[["oilpump_L",.35,"износ шестерён маслонасоса"],["comp_L",.25,"эрозия кромок лопаток"]],tests:["engine_L"]},
+ {id:"radar_hf",rank:3,reward:23500,xp:200,title:"Восстановление ВЧ-блока РЛС Н019МЭ",
+  story:"В полёте отказала РЛС. Наземная проверка подтвердила пробой в высокочастотном блоке. Привод антенны работает с повышенными токами, в разъёмах жгута СУО коррозия.",
+  goal:"Заменить ВЧ-блок, восстановить привод антенны и жгут СУО, выполнить полную настройку и юстировку РЛС.",
+  faults:[["radar_hf",4,14,"пробой в тракте передатчика",0],["radar_drive",36,50,"износ редуктора, повышенные токи",0],["suo_harness",40,54,"коррозия контактов",0]],
+  hidden:[["radome",.3,"расслоение у основания обтекателя"],["battery",.25,"снижение ёмкости"]],tests:["radar"]},
+ {id:"stab",rank:3,reward:16500,xp:180,title:"Ремонт привода стабилизатора и гидроагрегатов",
+  story:"На предполётной подготовке обнаружена течь АМГ-10 по штоку рулевого привода правого стабилизатора и повышенный люфт. Гидросистема загрязнена, на кронштейне гидробака трещина.",
+  goal:"Заменить или отремонтировать привод, восстановить гидроагрегаты и проверить гидросистему на гонке правого двигателя.",
+  faults:[["stab_R",12,30,"течь по штоку, люфт в проушине",1],["hydro_hoses",34,50,"подтекание в заделке",1],["hydro_filter",15,25,"фильтр забит",0],["hydro_tank",30,44,"трещина кронштейна бака",0]],
+  hidden:[["stab_L",.3,"начальная течь по штоку"],["strut_R",.2,"низкое давление азота"]],tests:["engine_R"]},
+ {id:"engines",rank:4,reward:56000,xp:320,title:"Восстановительный ремонт обоих РД-33",
+  story:"Самолёт прибыл с замечаниями по обоим двигателям: вибрация на максимале, рост температуры газов, падение давления масла на малом газе левого, нестабильный розжиг форсажа правого.",
+  goal:"Восстановить компрессоры, турбины, топливную автоматику, маслосистему и форсунки обоих РД-33 и провести гонку каждого на всех режимах.",
+  faults:[["comp_L",30,50,"эрозия и забоины лопаток",0],["comp_R",30,50,"эрозия и забоины лопаток",0],["turb_L",22,40,"коробление и прогар лопаток",0],["turb_R",22,40,"коробление и прогар лопаток",0],
+    ["reg_L",34,48,"износ плунжерной пары",0],["reg_R",34,48,"износ плунжерной пары",0],["oilpump_L",26,40,"износ шестерён",0],["oilfilt_L",15,25,"стружка и засорение",0],
+    ["oilfilt_R",20,30,"засорение",0],["ab_R",26,40,"закоксовывание форсунок",0]],
+  hidden:[["nozzle_L",.35,"прогар створок"],["nozzle_R",.35,"прогар створок"],["oilpump_R",.3,"износ шестерён"]],tests:["engine_L","engine_R"]},
+ {id:"parade",rank:5,reward:62000,xp:400,final:true,title:"Боеготовность к воздушному параду 3 июля",
+  story:"Самолёт назначен в парадный расчёт ко Дню Независимости. Комиссия выявила: прогар турбины и створок правого двигателя, закоксованные форсунки обоих, нестабильный ВЧ-блок и повреждённый жгут СУО, сроки пиросредств, износ тормозов и течь привода стабилизатора.",
+  goal:"Устранить все неисправности, выполнить гонку обоих двигателей и настройку РЛС, сдать самолёт ОТК без замечаний.",
+  faults:[["turb_R",14,30,"прогар лопаток турбины",0],["ab_L",30,44,"закоксовывание форсунок",0],["ab_R",28,42,"закоксовывание форсунок",0],["nozzle_R",32,46,"прогар створок",1],
+    ["radar_hf",16,30,"нестабильная мощность передатчика",0],["suo_harness",40,52,"повреждение изоляции",0],["seat_pyro",20,30,"истекают сроки пиросредств",0],
+    ["battery",30,40,"ёмкость ниже нормы",0],["stab_L",26,40,"течь по штоку",1],["brakes_L",28,40,"износ пакета",1],["brakes_R",30,44,"износ пакета",1]],
+  hidden:[["comp_R",.3,"эрозия лопаток компрессора"],["oilpump_R",.3,"износ шестерён"],["radome",.25,"расслоение стеклопластика"],["hydro_filter",.3,"засорение"]],
+  tests:["engine_L","engine_R","radar"]},
+];
+const MBY = Object.fromEntries(MISSIONS.map(m=>[m.id,m]));
+
+/* ═════════════════════════ СОСТОЯНИЕ ═════════════════════════ */
+let P = null;   // игрок
+let S = null;   // активный наряд
+const rnd = (a,b)=>a+Math.random()*(b-a);
+const rint = (a,b)=>Math.floor(rnd(a,b+1));
+const pick = a=>a[Math.floor(Math.random()*a.length)];
+const gauss = ()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
+const fmt = n => Math.round(n).toLocaleString("ru-RU") + " руб.";
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function newPlayer(name){
+  P = {name, xp:0, money:START_MONEY, completed:{}, inv:[], kits:{}, uid:1, finalDone:false,
+       stats:{earned:0,spent:0,failures:0,hidden:0,runs:0,radar:0,returns:0}};
+  S = null;
+}
+const rankIdx = () => { let r=0; RANKS.forEach(([,n],i)=>{ if(P.xp>=n) r=i; }); return r; };
+const rankName = (r=rankIdx()) => RANKS[r][0];
+const speed = () => 1 - .04*rankIdx();
+const discount = () => .02*rankIdx();
+const priceNew = t => Math.round(PT[t].price*(1-discount()));
+const priceUsed = t => Math.round(PT[t].price*USED_K*(1-discount())/10)*10;
+const priceKit = k => Math.round(KITS[k].price*(1-discount()));
+function spend(x){ P.money -= x; P.stats.spent += x; }
+
+function accessClosure(id){ const res=[], st=[...ACC[id]]; while(st.length){ const a=st.pop(); if(!res.includes(a)){res.push(a); st.push(...ACC[a]);} } return res; }
+function slotGroups(id){
+  const g=[];
+  if (SIDE.L.includes(id)) g.push("engine_L");
+  if (SIDE.R.includes(id)) g.push("engine_R");
+  if (FUEL.includes(id)) g.push("engine_L","engine_R");
+  if (HYDRO.includes(id)||GEAR.includes(id)||CTRL.includes(id)) g.push("engine_any");
+  if (RADAR.includes(id)) g.push("radar");
+  return g;
+}
+function missionNorm(m){
+  const work = new Set(); let t = 1.5; const g = new Set(m.tests);
+  for (const f of m.faults){ work.add(f[0]); accessClosure(f[0]).forEach(a=>work.add(a)); t += PT[ST[f[0]]].insp; }
+  for (const id of work){ t += PT[ST[id]].rm + PT[ST[id]].inst; slotGroups(id).forEach(x=>g.add(x)); }
+  if (g.has("engine_any") && (g.has("engine_L")||g.has("engine_R"))) g.delete("engine_any");
+  for (const x of g) t += TEST_H[x];
+  return Math.round((t*1.15+1)*10)/10;
+}
+function startMission(m){
+  const slots = {};
+  for (const id of SID) slots[id] = {cond:rint(74,97), defect:null, on:true, origin:"штатная", known:0, visible:false, suspect:false, claimed:null, approx:null};
+  const reported = {};
+  for (const [id,lo,hi,d,v] of m.faults){ Object.assign(slots[id],{cond:rint(lo,hi),defect:d,visible:!!v}); reported[id]=d; }
+  const hidden = {};
+  for (const [id,ch,d] of m.hidden) if (Math.random()<ch){ Object.assign(slots[id],{cond:rint(18,42),defect:d,visible:false}); hidden[id]={defect:d,status:"hidden"}; }
+  S = {mission:m.id, bort:pick(["02","05","08","12","17","23","26","31","37","42","45","51"]), slots, reported, hidden, hours:0, log:[],
+       tests:{engine_L:false,engine_R:false,engine_any:false,radar:false}, touched:[], rework:0, hot:false, norm:missionNorm(m),
+       replay:(P.completed[m.id]||0)>0};
+}
+const mission = () => S ? MBY[S.mission] : null;
+const slot = id => S.slots[id];
+function addHours(h, text){ const r = Math.round(h*speed()*10)/10; if (S){ S.hours = Math.round((S.hours+r)*10)/10; S.log.push([r,text]); } return r; }
+function touch(id){ for (const g of slotGroups(id)){ if(!S.touched.includes(g)) S.touched.push(g); S.tests[g]=false; } }
+function requiredTests(){ const r = new Set([...mission().tests, ...S.touched]); return TESTS.filter(t=>r.has(t)); }
+function effCond(id){ const s=slot(id); if(!s.on) return 0; return s.defect ? Math.min(s.cond,40) : s.cond; }
+function markFound(id, how="player"){
+  const h = S.hidden[id]; if(!h || h.status!=="hidden") return false;
+  h.status = how==="player" ? "found" : "otk";
+  if (how==="player"){ P.stats.hidden++; toast(`★ Скрытый дефект, не указанный в наряде: ${label(id)} — ${h.defect}. Устраните его, это оплачивается отдельно.`,"star",7000); }
+  return true;
+}
+/* Статус узла для интерфейса: cls ok|warn|crit|unk|off */
+function slotStatus(id){
+  const s = slot(id);
+  if (!s.on) return {cls:"off", text:"снят", cond:null};
+  if (s.known===2){
+    if (s.defect || s.cond<OTK_MIN) return {cls:"crit", text:"неисправен", cond:s.cond, detail:s.defect||"износ сверх допуска"};
+    if (s.cond<70) return {cls:"warn", text:"износ в допуске", cond:s.cond};
+    return {cls:"ok", text:"исправен", cond:s.cond};
+  }
+  if (s.known===1 && s.claimed!=null) return {cls:"warn", text:"Б/У без входного контроля", cond:null, detail:`по паспорту донора ≈${s.claimed}%`};
+  if (s.known===1 && s.defect && s.visible) return {cls:"crit", text:"повреждение видно", cond:null, approx:s.approx, detail:s.defect};
+  if (S.reported[id]) return {cls:"warn", text:"заявлен в наряде", cond:null, detail:"по наряду: "+S.reported[id]};
+  if (s.suspect) return {cls:"warn", text:"есть подозрение", cond:null, detail:"косвенный признак: "+PT[ST[id]].clue};
+  if (s.known===1) return {cls:"unk", text:"видимых повреждений нет", cond:null};
+  return {cls:"unk", text:"не проверен", cond:null};
+}
+
+/* ═════════════════════════ СОХРАНЕНИЕ ═════════════════════════ */
+function save(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify({P,S})); } catch(e){} }
+function loadSave(){
+  try {
+    const d = JSON.parse(localStorage.getItem(SAVE_KEY)||"null");
+    if (d && d.P && typeof d.P.xp==="number"){ return d; }
+  } catch(e){}
+  return null;
+}
+function applySave(d){
+  P = d.P; S = d.S && MBY[d.S.mission] ? d.S : null;
+  if (S) for (const id of SID) if(!S.slots[id]) S.slots[id]={cond:90,defect:null,on:true,origin:"штатная",known:0,visible:false,suspect:false,claimed:null,approx:null};
+}
+/* ═════════════════════════ 3D-СЦЕНА ═════════════════════════ */
+const canvas = document.getElementById("view");
+let renderer, scene, camera, raycaster, maxAniso = 4;
+const parts = {};            // slotId → {group, meshes, home, dir}
+const pickables = [];        // меши, участвующие в выборе (детали + обшивка как препятствие)
+const airframeMats = [];     // материалы планера (для рентген-режима)
+const anims = [];
+const W = {};                // группы мира: hangar, pad, plane, flames
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function ctex(w, h, draw, rep){
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  draw(c.getContext("2d"), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.encoding = THREE.sRGBEncoding; t.anisotropy = maxAniso;
+  if (rep){ t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]); }
+  return t;
+}
+function camoCanvas(){
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const g = c.getContext("2d"), B = 8, N = 256/B;
+  const cols = ["#8e9aa4","#737f8b","#a8b2ba","#5c6874"];
+  g.fillStyle = cols[0]; g.fillRect(0,0,256,256);
+  for (let k=0;k<260;k++){
+    const col = cols[1 + (k%3)], len = 3 + Math.floor(Math.random()*7);
+    let x = Math.floor(Math.random()*N), y = Math.floor(Math.random()*N);
+    g.fillStyle = col;
+    for (let i=0;i<len;i++){
+      g.fillRect(((x+N)%N)*B, ((y+N)%N)*B, B, B);
+      if (Math.random()<.5) x += Math.random()<.5?1:-1; else y += Math.random()<.5?1:-1;
+    }
+  }
+  return c;
+}
+let CAMO_CANVAS;
+function camoMat(rx, ry){
+  const t = new THREE.CanvasTexture(CAMO_CANVAS);
+  t.encoding = THREE.sRGBEncoding; t.anisotropy = maxAniso; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry);
+  return new THREE.MeshStandardMaterial({map:t, roughness:.72, metalness:.12});
+}
+const M = (color, o={}) => new THREE.MeshStandardMaterial(Object.assign({color, roughness:.55, metalness:.2}, o));
+function mesh(geo, mat, x=0, y=0, z=0){ const m = new THREE.Mesh(geo, mat); m.position.set(x,y,z); m.castShadow = true; m.receiveShadow = true; return m; }
+function alongX(m){ m.rotation.z = -Math.PI/2; return m; }
+function extrudeXZ(pts, depth, mat, y, bevel=.03){
+  const s = new THREE.Shape(); pts.forEach(([x,z],i)=> i? s.lineTo(x,z) : s.moveTo(x,z));
+  const g = new THREE.ExtrudeGeometry(s, {depth, bevelEnabled:bevel>0, bevelThickness:bevel, bevelSize:bevel, bevelSegments:2, steps:1});
+  const m = mesh(g, mat); m.rotation.x = Math.PI/2; m.position.y = y; return m;
+}
+
+function flagEmblemTexture(){
+  return ctex(512, 340, (g,w,h)=>{
+    g.clearRect(0,0,w,h);
+    // флаг Республики Беларусь
+    const fx=10, fy=10, fw=300, fh=150;
+    g.fillStyle="#c8313e"; g.fillRect(fx,fy,fw,fh*2/3);
+    g.fillStyle="#3f9a4d"; g.fillRect(fx,fy+fh*2/3,fw,fh/3);
+    g.fillStyle="#fff"; g.fillRect(fx,fy,34,fh);
+    g.fillStyle="#c8313e";
+    for (let y=fy+4;y<fy+fh-6;y+=18){ g.beginPath(); g.moveTo(fx+17,y); g.lineTo(fx+29,y+9); g.lineTo(fx+17,y+18); g.lineTo(fx+5,y+9); g.closePath(); g.fill(); }
+    // стилизованный государственный герб
+    const cx=410, cy=175, R=78;
+    g.strokeStyle="#d9a930"; g.lineWidth=4;
+    for (let a=0;a<Math.PI*2;a+=Math.PI/18){ g.beginPath(); g.moveTo(cx+Math.cos(a)*30,cy+Math.sin(a)*30); g.lineTo(cx+Math.cos(a)*56,cy+Math.sin(a)*56); g.stroke(); }
+    g.fillStyle="#2f7fbf"; g.beginPath(); g.arc(cx,cy+18,30,0,Math.PI*2); g.fill();
+    g.fillStyle="#3f9a4d"; g.beginPath(); g.moveTo(cx-22,cy-10); g.bezierCurveTo(cx-6,cy-30,cx+22,cy-22,cx+24,cy-4); g.bezierCurveTo(cx+18,cy+14,cx-6,cy+16,cx-24,cy+6); g.closePath(); g.fill();
+    g.fillStyle="#e2b53b";
+    for (const side of [-1,1]) for (let i=0;i<9;i++){ const a=Math.PI/2+side*(0.25+i*0.28); g.beginPath(); g.ellipse(cx+Math.cos(a)*R, cy+Math.sin(a)*R*0.95, 7, 13, a, 0, Math.PI*2); g.fill(); }
+    g.fillStyle="#c8313e"; g.beginPath();
+    for (let i=0;i<10;i++){ const r = i%2?9:22, a=-Math.PI/2+i*Math.PI/5; g.lineTo(cx+Math.cos(a)*r, cy-86+Math.sin(a)*r); } g.closePath(); g.fill();
+    g.fillStyle="#c8313e"; g.fillRect(cx-60,cy+82,60,12); g.fillStyle="#3f9a4d"; g.fillRect(cx,cy+82,60,12);
+  });
+}
+function numberTexture(txt){
+  return ctex(256, 128, (g,w,h)=>{ g.clearRect(0,0,w,h); g.font="bold 110px 'Russo One', Arial Black, sans-serif"; g.textAlign="center"; g.textBaseline="middle";
+    g.lineWidth=10; g.strokeStyle="#e9edf0"; g.strokeText(txt,w/2,h/2+6); g.fillStyle="#1d3f8a"; g.fillText(txt,w/2,h/2+6); });
+}
+function signTexture(lines, w=1024, h=256, bg="#1e2a33", fg="#e8c04a"){
+  return ctex(w, h, (g)=>{ g.fillStyle=bg; g.fillRect(0,0,w,h);
+    g.fillStyle="#c8313e"; g.fillRect(0,0,26,h*2/3); g.fillStyle="#48a456"; g.fillRect(0,h*2/3,26,h/3);
+    g.textBaseline="middle"; lines.forEach(([t,size,col],i)=>{ g.font=`${size}px 'Russo One', Arial Black, sans-serif`; g.fillStyle=col||fg; g.fillText(t,60,h/(lines.length+1)*(i+1)); }); });
+}
+
+/* ---------- самолёт ---------- */
+let bortTexMat = [];
+function regPart(id, list, dir){
+  const group = new THREE.Group(); group.userData.slot = id;
+  const meshes = [];
+  for (const m of list){ group.add(m); m.traverse(o=>{ if(o.isMesh){ o.userData.slot=id; meshes.push(o); pickables.push(o);
+    o.material = o.material.clone(); o.material.userData.base = o.material.color.clone(); } }); }
+  W.plane.add(group);
+  parts[id] = {group, meshes, dir:dir||new THREE.Vector3(0,.8,0)};
+  return group;
+}
+function airframe(m){ W.plane.add(m); m.traverse(o=>{ if(o.isMesh){ pickables.push(o); airframeMats.push(o.material); } }); return m; }
+
+function buildPlane(){
+  W.plane = new THREE.Group(); scene.add(W.plane);
+  const Y = 1.95;
+  const radomeM = M("#c9cfd2",{roughness:.45}), metal = M("#454b50",{metalness:.75,roughness:.35}), titan = M("#6f675d",{metalness:.9,roughness:.38});
+  const steel = M("#a4adb4",{metalness:.8,roughness:.3}), bronze = M("#8c6a44",{metalness:.8,roughness:.4}), rubber = M("#151515",{roughness:.92,metalness:0});
+  const gearM = M("#c3c9cd",{metalness:.5,roughness:.35}), dark = M("#1b1f22",{roughness:.8}), olive = M("#5f6b4c",{roughness:.6,metalness:.3});
+
+  // Планер
+  airframe(alongX(mesh(new THREE.CylinderGeometry(.56,.78,4.6,32), camoMat(1,1.2), 3.9, Y, 0)));
+  airframe(extrudeXZ([[2.8,.7],[1,1.5],[-6.4,1.36],[-6.4,-1.36],[1,-1.5],[2.8,-.7]], .6, camoMat(.28,.28), 2.33, .08));
+  airframe(extrudeXZ([[5.4,.62],[1.4,1.85],[-2.3,5.7],[-3.55,5.7],[-4.3,2],[-6,1.7],[-6,-1.7],[-4.3,-2],[-3.55,-5.7],[-2.3,-5.7],[1.4,-1.85],[5.4,-.62]], .1, camoMat(.25,.25), 2.02, .03));
+  airframe(mesh(new THREE.BoxGeometry(7.8,.36,.8), camoMat(1.6,.2), -1.5, 2.45, 0));
+  for (const z of [-1.05,1.05]){
+    airframe(mesh(new THREE.BoxGeometry(1.9,.95,.92), camoMat(.5,.25), 1.9, 1.42, z));
+    airframe(mesh(new THREE.PlaneGeometry(.8,.82), dark, 2.86, 1.42, z)).rotation.y = Math.PI/2;
+    // внутренние неснимаемые части двигателя
+    airframe(alongX(mesh(new THREE.CylinderGeometry(.36,.36,2.5,20), metal, -4.95, 1.4, z)));
+    airframe(mesh(new THREE.CircleGeometry(.43,24), dark, -6.24, 1.4, z)).rotation.y = -Math.PI/2;
+    // кили
+    const fs = new THREE.Shape(); fs.moveTo(-3.4,0); fs.lineTo(-6.1,3); fs.lineTo(-7.2,3); fs.lineTo(-7,0); fs.closePath();
+    const fin = mesh(new THREE.ExtrudeGeometry(fs,{depth:.1,bevelEnabled:true,bevelThickness:.02,bevelSize:.02,bevelSegments:1}), camoMat(.3,.3), 0, 2.28, (z>0?1.28:-1.38));
+    fin.rotation.x = z>0 ? .12 : -.12; airframe(fin);
+    const dec = new THREE.Mesh(new THREE.PlaneGeometry(1.5,1), new THREE.MeshStandardMaterial({map:flagEmblemTexture(), transparent:true, roughness:.6}));
+    dec.position.set(-5.55, 1.5, z>0 ? .13 : -.03); dec.rotation.y = z>0 ? 0 : Math.PI; fin.add(dec);
+    // стабилизаторы
+    const sgn = Math.sign(z);
+    airframe(extrudeXZ([[-5.4,1.5*sgn],[-7.35,3.9*sgn],[-8.05,3.9*sgn],[-7.8,1.5*sgn]], .07, camoMat(.3,.3), 1.66, .02));
+  }
+  // бортовой номер
+  for (const z of [-.66,.66]){
+    const t = new THREE.Mesh(new THREE.PlaneGeometry(.8,.4), new THREE.MeshStandardMaterial({map:numberTexture("23"), transparent:true, roughness:.6}));
+    t.position.set(5.1, 1.9, z); t.rotation.y = z>0?0:Math.PI; t.rotation.x = z>0?-.08:.08; W.plane.add(t); bortTexMat.push(t.material);
+  }
+  // фонарь (стекло не участвует в выборе)
+  const glass = new THREE.Mesh(new THREE.SphereGeometry(.62,28,14,0,Math.PI*2,0,Math.PI/2), new THREE.MeshStandardMaterial({color:"#7fb6dc",transparent:true,opacity:.42,roughness:.05,metalness:.4,depthWrite:false}));
+  glass.scale.set(2.3,.85,.95); glass.position.set(3.9,2.47,0); W.plane.add(glass);
+  // носовая стойка (неснимаемая)
+  airframe(mesh(new THREE.CylinderGeometry(.07,.07,1.05,10), gearM, 4.6, .82, 0));
+  for (const z of [-.17,.17]) airframe(mesh(new THREE.CylinderGeometry(.27,.27,.14,20), rubber, 4.6, .27, z)).rotation.x = Math.PI/2;
+  airframe(mesh(new THREE.BoxGeometry(.7,.06,.5), gearM, 4.55, .62, 0));
+
+  // ── Снимаемые узлы ──
+  regPart("radome", [alongX(mesh(new THREE.ConeGeometry(.56,2.5,32), radomeM, 7.45, Y, 0))], new THREE.Vector3(2.2,0,0));
+  regPart("pitot", [alongX(mesh(new THREE.CylinderGeometry(.018,.035,1.25,8), steel, 9.28, Y, 0))], new THREE.Vector3(1.2,.2,0));
+  const dish = mesh(new THREE.CylinderGeometry(.46,.46,.05,32), M("#b9b3a0",{metalness:.4}), 6.75, Y, 0); dish.rotation.z = Math.PI/2;
+  regPart("radar_drive", [dish, alongX(mesh(new THREE.CylinderGeometry(.09,.12,.5,12), metal, 6.45, Y, 0))], new THREE.Vector3(1.2,.6,0));
+  regPart("radar_hf", [mesh(new THREE.BoxGeometry(.4,.3,.55), M("#7c8586",{metalness:.5}), 6.38, Y-.34, 0)], new THREE.Vector3(1.4,-.3,0));
+  const seat = [mesh(new THREE.BoxGeometry(.45,.55,.45), M("#2b2f33"), 3.55, 2.55, 0), mesh(new THREE.BoxGeometry(.12,.3,.4), M("#2b2f33"), 3.3, 2.85, 0)];
+  const handle = mesh(new THREE.TorusGeometry(.08,.02,6,12), M("#e0b020"), 3.8, 2.72, 0); handle.rotation.y = Math.PI/2; seat.push(handle);
+  regPart("seat_pyro", seat, new THREE.Vector3(0,1.4,0));
+  regPart("av_hatch", [mesh(new THREE.BoxGeometry(.72,.11,.62), camoMat(.3,.3), 1.95, 2.68, 0)], new THREE.Vector3(0,.9,.6));
+  const harness = new THREE.CatmullRomCurve3([new THREE.Vector3(1.66,2.67,-.2),new THREE.Vector3(1.9,2.68,.05),new THREE.Vector3(2.2,2.67,-.1)]);
+  regPart("suo_harness", [mesh(new THREE.TubeGeometry(harness,16,.028,6,false), M("#d9782a"))], new THREE.Vector3(0,.7,0));
+  regPart("battery", [mesh(new THREE.BoxGeometry(.26,.07,.2), M("#1d1d1d"), 2.1, 2.665, .17)], new THREE.Vector3(0,.7,.3));
+  regPart("tank3_hatch", [mesh(new THREE.BoxGeometry(.85,.1,.6), camoMat(.3,.3), -1.6, 2.675, 0)], new THREE.Vector3(0,.9,0));
+  regPart("tank3_seal", [mesh(new THREE.BoxGeometry(.72,.04,.48), M("#2c2016",{roughness:.9}), -1.6, 2.65, 0)], new THREE.Vector3(0,.7,-.4));
+  regPart("fuel_line", [alongX(mesh(new THREE.CylinderGeometry(.026,.026,.7,8), M("#c0a060",{metalness:.7}), -1.6, 2.69, .16))], new THREE.Vector3(0,.7,.4));
+  regPart("hydro_tank", [alongX(mesh(new THREE.CylinderGeometry(.2,.2,.8,18), M("#8b9296",{metalness:.6}), -.4, 1.36, 0))], new THREE.Vector3(0,-.9,0));
+  regPart("hydro_filter", [mesh(new THREE.CylinderGeometry(.07,.07,.24,12), M("#b8a24a",{metalness:.5}), .35, 1.42, .2)], new THREE.Vector3(0,-.8,0));
+  const hoses = [];
+  for (const z of [-1,1]){ const c = new THREE.QuadraticBezierCurve3(new THREE.Vector3(-.4,1.3,0), new THREE.Vector3(-.9,1.05,.8*z), new THREE.Vector3(-1.1,1.38,1.55*z));
+    hoses.push(mesh(new THREE.TubeGeometry(c,20,.03,6,false), M("#191919",{roughness:.7}))); }
+  regPart("hydro_hoses", hoses, new THREE.Vector3(0,-.8,0));
+  for (const [s,z] of [["L",-1],["R",1]]){
+    const gz = 1.62*z, wz = 1.9*z;
+    const strut = [mesh(new THREE.CylinderGeometry(.085,.085,1.0,12), gearM, -1.1, .95, gz), mesh(new THREE.CylinderGeometry(.12,.12,.5,12), gearM, -1.1, 1.3, gz)];
+    const axle = mesh(new THREE.CylinderGeometry(.05,.05,.35,8), gearM, -1.1, .42, (gz+wz)/2); axle.rotation.x = Math.PI/2; strut.push(axle);
+    regPart("strut_"+s, strut, new THREE.Vector3(0,-.4,.9*z));
+    const br = mesh(new THREE.CylinderGeometry(.25,.25,.2,20), M("#6b4a32",{metalness:.6}), -1.1, .42, wz); br.rotation.x = Math.PI/2;
+    regPart("brakes_"+s, [br], new THREE.Vector3(0,0,.8*z));
+    const tire = mesh(new THREE.CylinderGeometry(.42,.42,.26,28), rubber, -1.1, .42, wz); tire.rotation.x = Math.PI/2;
+    const hub = mesh(new THREE.CylinderGeometry(.21,.21,.28,20), gearM, -1.1, .42, wz); hub.rotation.x = Math.PI/2;
+    regPart("wheel_"+s, [tire, hub], new THREE.Vector3(0,0,1.3*z));
+    regPart("stab_"+s, [alongX(mesh(new THREE.CylinderGeometry(.075,.075,.75,12), steel, -5.7, 1.52, 1.72*z)), alongX(mesh(new THREE.CylinderGeometry(.03,.03,.5,8), steel, -6.2, 1.52, 1.72*z))], new THREE.Vector3(0,-.7,.3*z));
+    // двигатель
+    const ez = 1.05*z, ey = 1.4;
+    regPart("cowl_"+s, [alongX(mesh(new THREE.CylinderGeometry(.5,.5,7.2,28), camoMat(1,1.4), -2.6, ey, ez))], new THREE.Vector3(0,-1.2,.6*z));
+    regPart("comp_"+s, [alongX(mesh(new THREE.CylinderGeometry(.34,.34,2.4,24), steel, -.3, ey, ez)), mesh(new THREE.TorusGeometry(.34,.03,6,24), M("#d0d6da",{metalness:.9}), .9, ey, ez)], new THREE.Vector3(0,-.9,.9*z));
+    parts["comp_"+s].meshes[1].rotation.y = Math.PI/2;
+    regPart("turb_"+s, [alongX(mesh(new THREE.CylinderGeometry(.31,.34,2.2,24), bronze, -2.6, ey, ez))], new THREE.Vector3(0,-.9,.9*z));
+    regPart("reg_"+s, [mesh(new THREE.BoxGeometry(.5,.13,.3), olive, .3, .98, ez)], new THREE.Vector3(0,-.6,.5*z));
+    regPart("oilpump_"+s, [mesh(new THREE.BoxGeometry(.3,.13,.26), M("#6b5d48",{metalness:.4}), -.5, .98, ez)], new THREE.Vector3(0,-.6,.5*z));
+    regPart("oilfilt_"+s, [alongX(mesh(new THREE.CylinderGeometry(.06,.06,.3,12), M("#c9a13a",{metalness:.5}), -1.2, .99, ez))], new THREE.Vector3(0,-.6,.5*z));
+    const nz = alongX(mesh(new THREE.CylinderGeometry(.46,.4,1.3,28,1,true), titan, -6.85, ey, ez)); nz.material.side = THREE.DoubleSide;
+    regPart("nozzle_"+s, [nz], new THREE.Vector3(-1.4,0,0));
+    const ring = mesh(new THREE.TorusGeometry(.26,.035,8,28), M("#9a8a70",{metalness:.8}), -6.42, ey, ez); ring.rotation.y = Math.PI/2;
+    regPart("ab_"+s, [ring], new THREE.Vector3(-1.2,.3,0));
+  }
+}
+
+/* ---------- ангар и газовочная площадка ---------- */
+function buildHangar(){
+  W.hangar = new THREE.Group(); scene.add(W.hangar);
+  const conc = ctex(512,512,(g,w,h)=>{ g.fillStyle="#5d6264"; g.fillRect(0,0,w,h);
+    for(let i=0;i<9000;i++){ const v=80+Math.random()*40|0; g.fillStyle=`rgba(${v},${v+4},${v+6},.18)`; g.fillRect(Math.random()*w,Math.random()*h,2,2); }
+    g.strokeStyle="rgba(30,32,34,.8)"; g.lineWidth=3; g.strokeRect(0,0,w,h);
+    g.fillStyle="rgba(40,30,20,.12)"; for(let i=0;i<6;i++){ g.beginPath(); g.arc(Math.random()*w,Math.random()*h,20+Math.random()*50,0,7); g.fill(); } },[10,7]);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(70,50), new THREE.MeshStandardMaterial({map:conc, roughness:.85, metalness:.05}));
+  floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; W.hangar.add(floor);
+  const yellow = new THREE.MeshStandardMaterial({color:"#e8c04a", roughness:.7});
+  for (const [w,d,x,z] of [[22,.16,0,-8],[22,.16,0,8],[.16,16,-11,0],[.16,16,11,0],[8,.1,14,-3],[8,.1,14,3]]){
+    const l = new THREE.Mesh(new THREE.PlaneGeometry(w,d), yellow); l.rotation.x=-Math.PI/2; l.position.set(x,.01,z); W.hangar.add(l); }
+  const wall = ctex(512,256,(g,w,h)=>{ g.fillStyle="#34424c"; g.fillRect(0,0,w,h); for(let x=0;x<w;x+=16){ g.fillStyle=x%32?"#2f3c45":"#3a4852"; g.fillRect(x,0,8,h);} g.fillStyle="#26323a"; g.fillRect(0,h-40,w,40); },[12,3]);
+  const room = new THREE.Mesh(new THREE.BoxGeometry(70,16,50), new THREE.MeshStandardMaterial({map:wall, side:THREE.BackSide, roughness:.9}));
+  room.position.y = 8; room.receiveShadow = true; W.hangar.add(room);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(20,5), new THREE.MeshBasicMaterial({map:signTexture([["558 АВИАЦИОННЫЙ РЕМОНТНЫЙ ЗАВОД",64],["ремонтный цех · г. Барановичи",40,"#c9d2d6"]])}));
+  sign.position.set(-34.9,10,0); sign.rotation.y = Math.PI/2; W.hangar.add(sign);
+  const s2 = new THREE.Mesh(new THREE.PlaneGeometry(18,2.6), new THREE.MeshBasicMaterial({map:signTexture([["КАЧЕСТВО РЕМОНТА — БЕЗОПАСНОСТЬ ПОЛЁТОВ",52]],1024,150)}));
+  s2.position.set(0,11,-24.9); W.hangar.add(s2);
+  // фермы и светильники
+  const truss = M("#27313a",{metalness:.6});
+  for (let x=-30;x<=30;x+=10){ const b = new THREE.Mesh(new THREE.BoxGeometry(.5,.8,50), truss); b.position.set(x,15.4,0); W.hangar.add(b);
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(1.6,.12,.5), new THREE.MeshBasicMaterial({color:"#fff6df"})); lamp.position.set(x,14.9,0); W.hangar.add(lamp); }
+  const crane = new THREE.Mesh(new THREE.BoxGeometry(1,1,48), M("#d2a226",{metalness:.4})); crane.position.set(-4,13.5,0); W.hangar.add(crane);
+  // оборудование
+  const red = M("#a3262c",{metalness:.3}), grey = M("#59636b",{metalness:.4});
+  for (let i=0;i<5;i++){ const c = mesh(new THREE.BoxGeometry(1.4,1.8,.7), red, -12+i*3.2, .9, -23.5); W.hangar.add(c);
+    const top = mesh(new THREE.BoxGeometry(1.4,.05,.7), grey, -12+i*3.2, 1.83, -23.5); W.hangar.add(top); }
+  const bench = mesh(new THREE.BoxGeometry(4,.1,1.2), M("#6d5a3e"), 8, 1, -22.5); W.hangar.add(bench);
+  for (const x of [6.2,9.8]) W.hangar.add(mesh(new THREE.BoxGeometry(.1,1,1.1), grey, x, .5, -22.5));
+  // подъёмники под крылом и фюзеляжем
+  for (const [x,z] of [[-2.8,-3.6],[-2.8,3.6],[3.2,0]]){
+    const jack = new THREE.Group(); jack.position.set(x,0,z);
+    jack.add(mesh(new THREE.CylinderGeometry(.12,.16,z?1.9:1.3,10), M("#c9401f",{metalness:.4}), 0, z?.95:.65, 0));
+    for (let a=0;a<3;a++){ const leg = mesh(new THREE.BoxGeometry(1.1,.08,.1), M("#c9401f"), Math.cos(a*2.1)*.45, .06, Math.sin(a*2.1)*.45); leg.rotation.y = -a*2.1; jack.add(leg); }
+    W.hangar.add(jack); }
+  // стремянка у кабины
+  const lad = new THREE.Group(); lad.position.set(3.6,0,-1.6);
+  for (let i=0;i<6;i++) lad.add(mesh(new THREE.BoxGeometry(.6,.05,.25), M("#c8cdd0",{metalness:.6}), 0, .35+i*.36, -i*.12));
+  lad.add(mesh(new THREE.BoxGeometry(.05,2.3,.05), M("#c8cdd0"), -.3, 1.15, -.35)); lad.add(mesh(new THREE.BoxGeometry(.05,2.3,.05), M("#c8cdd0"), .3, 1.15, -.35));
+  W.hangar.add(lad);
+  const ext = mesh(new THREE.CylinderGeometry(.18,.18,.7,14), M("#c21f25"), 12, .35, -6); W.hangar.add(ext);
+  // тележка для двигателя
+  const cart = new THREE.Group(); cart.position.set(-9,0,9);
+  cart.add(mesh(new THREE.BoxGeometry(4,.12,1.2), M("#e0a92a"), 0, .5, 0));
+  for (const [x,z] of [[-1.7,-.5],[1.7,-.5],[-1.7,.5],[1.7,.5]]){ const w = mesh(new THREE.CylinderGeometry(.18,.18,.12,12), rubber(), x,.18,z); w.rotation.x=Math.PI/2; cart.add(w); }
+  W.hangar.add(cart);
+  function rubber(){ return M("#151515",{roughness:.9}); }
+}
+function buildPad(){
+  W.pad = new THREE.Group(); W.pad.visible = false; scene.add(W.pad);
+  const slabs = ctex(512,512,(g,w,h)=>{ g.fillStyle="#7c8084"; g.fillRect(0,0,w,h);
+    for(let i=0;i<7000;i++){ const v=100+Math.random()*50|0; g.fillStyle=`rgba(${v},${v},${v},.2)`; g.fillRect(Math.random()*w,Math.random()*h,2,2); }
+    g.strokeStyle="#4b4f52"; g.lineWidth=4; for(let i=0;i<=4;i++){ g.beginPath(); g.moveTo(i*128,0); g.lineTo(i*128,h); g.stroke(); g.beginPath(); g.moveTo(0,i*128); g.lineTo(w,i*128); g.stroke(); } },[30,30]);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(400,400), new THREE.MeshStandardMaterial({map:slabs, roughness:.9}));
+  ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; W.pad.add(ground);
+  const grass = new THREE.Mesh(new THREE.RingGeometry(60,400,48), new THREE.MeshStandardMaterial({color:"#4d6b3a", roughness:1}));
+  grass.rotation.x = -Math.PI/2; grass.position.y = .02; W.pad.add(grass);
+  const defl = mesh(new THREE.BoxGeometry(.6,6,16), M("#6e7478",{metalness:.5}), -17, 3, 0); defl.rotation.z = -.35; W.pad.add(defl);
+  for (let i=0;i<40;i++){ const a = i/40*Math.PI*2, r = 140+Math.random()*30;
+    const tr = mesh(new THREE.ConeGeometry(4+Math.random()*3, 14+Math.random()*10, 7), M("#2f4a2c",{roughness:1}), Math.cos(a)*r, 9, Math.sin(a)*r); W.pad.add(tr); }
+  const truck = new THREE.Group(); truck.position.set(14,0,-20); truck.rotation.y = .6;
+  truck.add(mesh(new THREE.BoxGeometry(6,2.4,2.4), M("#b72226"), 0, 1.7, 0)); truck.add(mesh(new THREE.BoxGeometry(1.8,1.6,2.3), M("#d9dde0"), 3.6, 1.3, 0));
+  W.pad.add(truck);
+  const chock = M("#e8c04a");
+  for (const z of [-1.9,1.9]){ W.pad.add(mesh(new THREE.BoxGeometry(.3,.25,.4), chock, -.55, .12, z)); W.pad.add(mesh(new THREE.BoxGeometry(.3,.25,.4), chock, -1.65, .12, z)); }
+}
+
+/* ---------- пламя двигателя ---------- */
+function buildFlames(){
+  W.flames = {};
+  for (const [s,z] of [["L",-1.05],["R",1.05]]){
+    const g = new THREE.Group(); g.position.set(-7.5,1.4,z); g.visible = false;
+    const core = new THREE.Mesh(new THREE.ConeGeometry(.38,3,20,1,true), new THREE.MeshBasicMaterial({color:"#ff7a1f",transparent:true,opacity:.0,depthWrite:false,side:THREE.DoubleSide}));
+    core.rotation.z = Math.PI/2; core.position.x = -1.5;
+    const inner = new THREE.Mesh(new THREE.ConeGeometry(.24,2,16,1,true), new THREE.MeshBasicMaterial({color:"#ffd36a",transparent:true,opacity:0,depthWrite:false,side:THREE.DoubleSide}));
+    inner.rotation.z = Math.PI/2; inner.position.x = -1;
+    const diamonds = [];
+    for (let i=0;i<4;i++){ const d = new THREE.Mesh(new THREE.SphereGeometry(.14,10,8), new THREE.MeshBasicMaterial({color:"#fff1c4",transparent:true,opacity:0,depthWrite:false}));
+      d.position.x = -.8-i*.7; d.scale.set(1.6,1,1); g.add(d); diamonds.push(d); }
+    const light = new THREE.PointLight("#ff8a3a", 0, 12); light.position.x = -1;
+    g.add(core, inner, light); W.plane.add(g);
+    W.flames[s] = {g, core, inner, diamonds, light};
+  }
+  // дым/огонь аварии
+  W.fire = new THREE.Group(); W.fire.visible = false; W.plane.add(W.fire);
+  for (let i=0;i<26;i++){ const p = new THREE.Mesh(new THREE.SphereGeometry(.35,8,6), new THREE.MeshBasicMaterial({color:i%3?"#ff6a1a":"#ffb03a",transparent:true,opacity:.7,blending:THREE.AdditiveBlending,depthWrite:false}));
+    p.userData = {ph:Math.random()*6, sp:.6+Math.random()}; W.fire.add(p); }
+}
+
+/* ---------- визуальное состояние деталей ---------- */
+const TINT = {ok:new THREE.Color("#1f8a4c"), warn:new THREE.Color("#b8631c"), crit:new THREE.Color("#b21f1f"), unk:new THREE.Color("#2a4a66")};
+const DAMAGE = new THREE.Color("#4a2c1c");
+let inspectMode = false, hovered = null, selected = null;
+function paintPart(id){
+  const p = parts[id]; if (!p) return;
+  const s = S ? slot(id) : null;
+  let em = new THREE.Color(0,0,0), ei = 0;
+  if (inspectMode && s && s.on){ em = TINT[slotStatus(id).cls] || TINT.unk; ei = .9; }
+  if (hovered===id){ em = new THREE.Color("#8a6d10"); ei = 1; }
+  if (selected===id){ em = new THREE.Color("#c99a18"); ei = 1; }
+  for (const m of p.meshes){
+    const mat = m.material;
+    mat.emissive.copy(em).multiplyScalar(ei*.55);
+    const dmg = s && s.on && s.defect && s.known>=1 && (s.visible || s.known===2);
+    mat.color.copy(mat.userData.base); if (dmg) mat.color.lerp(DAMAGE, .45);
+  }
+}
+function paintAll(){ Object.keys(parts).forEach(paintPart); }
+function setXray(on){ for (const m of airframeMats){ m.transparent = on; m.opacity = on ? .2 : 1; m.depthWrite = !on; m.needsUpdate = true; } }
+function syncPlane(){
+  anims.length = 0;
+  for (const id of SID){ const p = parts[id]; p.group.position.set(0,0,0); p.group.visible = S ? slot(id).on : true;
+    for (const m of p.meshes){ m.material.opacity = 1; m.material.transparent = false; } }
+  for (const m of bortTexMat){ m.map = numberTexture(S ? S.bort : "23"); m.needsUpdate = true; }
+  paintAll();
+}
+function animPart(id, removing){
+  const p = parts[id]; p.group.visible = true;
+  for (const m of p.meshes){ m.material.transparent = true; }
+  anims.push({id, t:0, dur:.7, removing});
+}
+function stepAnims(dt){
+  for (let i=anims.length-1;i>=0;i--){
+    const a = anims[i], p = parts[a.id]; a.t += dt; const k = clamp(a.t/a.dur,0,1), e = k*k*(3-2*k);
+    const f = a.removing ? e : 1-e;
+    p.group.position.copy(p.dir).multiplyScalar(f);
+    for (const m of p.meshes) m.material.opacity = 1-f;
+    if (k>=1){ anims.splice(i,1); p.group.visible = !a.removing; p.group.position.set(0,0,0);
+      for (const m of p.meshes){ m.material.opacity = 1; m.material.transparent = false; } }
+  }
+}
+
+/* ---------- камера ---------- */
+const cam = {t:new THREE.Vector3(0,1.6,0), r:21, th:.75, ph:1.15, goal:null, auto:true};
+const CAMS = {
+  all:[[0,1.6,0],21,.75,1.15], nose:[[7,1.9,0],6.5,.7,1.2], cockpit:[[2.8,2.5,0],5.5,1.35,.75], engL:[[-2.5,1.3,-1.05],6,-1.95,1.3],
+  engR:[[-2.5,1.3,1.05],6,1.95,1.3], gear:[[-.8,.9,0],7.5,-1.15,1.42], top:[[-.5,2,0],19,-1.5708,.08], tail:[[-7,1.5,0],7.5,2.6,1.3],
+  engineRunL:[[-6.5,-1.4,-1],17,-2.25,1.2], engineRunR:[[-6.5,-1.4,1],17,2.25,1.2],
+};
+function camTo(key){ const c = CAMS[key]; cam.goal = {t:new THREE.Vector3(...c[0]), r:c[1], th:c[2], ph:c[3]}; cam.auto = false; }
+function focusOn(id){ const p = parts[id]; if(!p) return; const box = new THREE.Box3().setFromObject(p.group); const c = box.getCenter(new THREE.Vector3());
+  if (box.isEmpty()) return; cam.goal = {t:c, r:clamp(box.getSize(new THREE.Vector3()).length()*3.2,3.5,9), th:cam.th, ph:cam.ph}; cam.auto = false; }
+function stepCam(dt){
+  if (cam.goal){ const k = 1-Math.pow(.004, dt);
+    cam.t.lerp(cam.goal.t, k); cam.r += (cam.goal.r-cam.r)*k;
+    let dth = cam.goal.th - cam.th; while(dth>Math.PI) dth-=2*Math.PI; while(dth<-Math.PI) dth+=2*Math.PI;
+    cam.th += dth*k; cam.ph += (cam.goal.ph-cam.ph)*k;
+    if (cam.t.distanceTo(cam.goal.t)<.01 && Math.abs(dth)<.002) cam.goal = null; }
+  if (cam.auto && !reduceMotion) cam.th += dt*.06;
+  const sp = Math.sin(cam.ph);
+  camera.position.set(cam.t.x + cam.r*sp*Math.cos(cam.th), cam.t.y + cam.r*Math.cos(cam.ph), cam.t.z + cam.r*sp*Math.sin(cam.th));
+  if (camera.position.y < .25) camera.position.y = .25;
+  camera.lookAt(cam.t);
+  if (shake>0){ shake = Math.max(0, shake-dt); if(!reduceMotion){ camera.position.x += (Math.random()-.5)*shake*.4; camera.position.y += (Math.random()-.5)*shake*.4; } }
+}
+let shake = 0;
+
+/* ---------- ввод ---------- */
+const ptr = {down:false, x:0, y:0, moved:0, btn:0, touches:new Map(), pinch:0};
+function ndc(e){ const r = canvas.getBoundingClientRect(); return new THREE.Vector2(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); }
+function visibleChain(o){ while(o){ if(!o.visible) return false; o = o.parent; } return true; }
+function pickAt(e){
+  raycaster.setFromCamera(ndc(e), camera);
+  const hits = raycaster.intersectObjects(pickables.filter(visibleChain), false);
+  for (const h of hits){ if (inspectMode && !h.object.userData.slot) continue; return h.object.userData.slot || null; }
+  return null;
+}
+function initInput(){
+  canvas.addEventListener("contextmenu", e=>e.preventDefault());
+  canvas.addEventListener("pointerdown", e=>{
+    canvas.setPointerCapture(e.pointerId); ptr.touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    ptr.down = true; ptr.x = e.clientX; ptr.y = e.clientY; ptr.moved = 0; ptr.btn = (e.button===2||e.shiftKey)?2:0;
+    if (ptr.touches.size===2){ const [a,b] = [...ptr.touches.values()]; ptr.pinch = Math.hypot(a.x-b.x,a.y-b.y); }
+  });
+  canvas.addEventListener("pointermove", e=>{
+    if (ptr.touches.has(e.pointerId)) ptr.touches.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if (ptr.down){
+      const dx = e.clientX-ptr.x, dy = e.clientY-ptr.y; ptr.x = e.clientX; ptr.y = e.clientY; ptr.moved += Math.abs(dx)+Math.abs(dy);
+      if (ptr.moved>4){ cam.auto = false; cam.goal = null; }
+      if (ptr.touches.size===2){ const [a,b] = [...ptr.touches.values()]; const d = Math.hypot(a.x-b.x,a.y-b.y);
+        if (ptr.pinch){ cam.r = clamp(cam.r*ptr.pinch/d, 3, 45); } ptr.pinch = d; return; }
+      if (ptr.btn===2){ const right = new THREE.Vector3().subVectors(camera.position,cam.t).cross(camera.up).normalize();
+        cam.t.addScaledVector(right, dx*cam.r*.0016); cam.t.y = clamp(cam.t.y + dy*cam.r*.0016, 0, 8); }
+      else { cam.th += dx*.006; cam.ph = clamp(cam.ph - dy*.006, .06, 1.52); }
+      hideTip();
+    } else if (e.pointerType==="mouse" && !engineActive) onHover(e);
+  });
+  const up = e=>{
+    ptr.touches.delete(e.pointerId);
+    if (ptr.touches.size<2) ptr.pinch = 0;
+    if (!ptr.down) return;
+    if (ptr.touches.size===0) ptr.down = false;
+    if (ptr.moved<6 && e.button!==2 && !engineActive && S) selectPart(pickAt(e));
+  };
+  canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up);
+  canvas.addEventListener("dblclick", e=>{ const id = pickAt(e); if (id) focusOn(id); });
+  canvas.addEventListener("wheel", e=>{ e.preventDefault(); cam.auto=false; cam.goal=null; cam.r = clamp(cam.r*Math.pow(1.0015,e.deltaY), 3, 45); }, {passive:false});
+  canvas.addEventListener("pointerleave", ()=>{ if(hovered){ const h=hovered; hovered=null; paintPart(h);} hideTip(); });
+}
+const tipEl = document.getElementById("tip");
+function hideTip(){ tipEl.hidden = true; }
+function onHover(e){
+  if (!S){ hideTip(); return; }
+  const id = pickAt(e);
+  if (id!==hovered){ const old = hovered; hovered = id; if(old) paintPart(old); if(id) paintPart(id); }
+  if (id){ const st = slotStatus(id);
+    tipEl.innerHTML = `${esc(label(id))}<small>${esc(st.text)}${st.cond!=null?` · ${st.cond}%`:""}</small>`;
+    tipEl.style.left = Math.min(e.clientX+14, innerWidth-290)+"px"; tipEl.style.top = (e.clientY+14)+"px"; tipEl.hidden = false;
+    canvas.style.cursor = "pointer"; }
+  else { hideTip(); canvas.style.cursor = "grab"; }
+}
+
+/* ---------- запуск движка ---------- */
+let last = 0;
+function init3D(){
+  renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  maxAniso = renderer.capabilities.getMaxAnisotropy();
+  scene = new THREE.Scene(); scene.background = new THREE.Color("#161d22"); scene.fog = new THREE.Fog("#161d22", 40, 90);
+  camera = new THREE.PerspectiveCamera(45, 1, .1, 600);
+  raycaster = new THREE.Raycaster();
+  W.hemi = new THREE.HemisphereLight("#d6e4ef","#3a352f",.65); scene.add(W.hemi);
+  W.key = new THREE.DirectionalLight("#fff4e2", 1.25); W.key.position.set(8,18,10); W.key.castShadow = true;
+  W.key.shadow.mapSize.set(2048,2048); Object.assign(W.key.shadow.camera,{left:-14,right:14,top:14,bottom:-14,near:1,far:60}); W.key.shadow.bias = -.0004; W.key.shadow.normalBias = .04;
+  scene.add(W.key);
+  W.fill = new THREE.PointLight("#9fc4ff", .6, 40); W.fill.position.set(-10,8,-8); scene.add(W.fill);
+  W.warm = new THREE.PointLight("#ffd29a", .5, 40); W.warm.position.set(10,6,10); scene.add(W.warm);
+  CAMO_CANVAS = camoCanvas();
+  buildHangar(); buildPad(); buildPlane(); buildFlames();
+  initInput(); resize(); addEventListener("resize", resize);
+  requestAnimationFrame(loop);
+}
+function resize(){ const w = canvas.clientWidth, h = canvas.clientHeight; renderer.setSize(w,h,false); camera.aspect = w/h; camera.updateProjectionMatrix(); }
+function loop(t){
+  const dt = Math.min(.05, (t-last)/1000 || 0); last = t;
+  stepCam(dt); stepAnims(dt);
+  if (engineActive) engineTick(dt);
+  if (RD) radarTick(dt);
+  if (W.fire.visible) for (const p of W.fire.children){ p.userData.ph += dt*p.userData.sp*2;
+    const k = p.userData.ph%1; p.position.set(p.userData.x - k*.8, p.userData.y + k*2.2, p.userData.z + Math.sin(p.userData.ph*3)*.2); p.scale.setScalar(.6+k*1.6); p.material.opacity = .8*(1-k); }
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+/* ═════════════════════════ ИНТЕРФЕЙС ═════════════════════════ */
+const $ = id => document.getElementById(id);
+function toast(msg, cls="", ms=4200){
+  const t = document.createElement("div"); t.className = "toast "+cls; t.textContent = msg; $("toasts").appendChild(t);
+  while ($("toasts").children.length>4) $("toasts").firstChild.remove();
+  setTimeout(()=>t.remove(), ms);
+}
+let modalClose = null;
+function modal(title, html, {narrow=false, footer="", onClose=null}={}){
+  closeModal();
+  const root = $("modalRoot");
+  root.innerHTML = `<div class="modal" id="mBack"><div class="sheet ${narrow?"narrow":""}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <header><h2>${esc(title)}</h2><button class="x" id="mX" aria-label="Закрыть">×</button></header>
+    <div class="content" id="mBody">${html}</div>${footer?`<footer id="mFoot">${footer}</footer>`:""}</div></div>`;
+  modalClose = onClose;
+  $("mX").onclick = closeModal;
+  $("mBack").addEventListener("pointerdown", e=>{ if(e.target.id==="mBack") closeModal(); });
+  return $("mBody");
+}
+function closeModal(){ const had = $("modalRoot").innerHTML; $("modalRoot").innerHTML = ""; if (had && modalClose){ const f = modalClose; modalClose = null; f(); } }
+function confirmBox(text, ok="Подтвердить", danger=false){
+  return new Promise(res=>{
+    modal("Подтверждение", `<p style="margin:0;line-height:1.5">${text}</p>`, {narrow:true,
+      footer:`<button class="mini" id="cNo">Отмена</button><button class="mini ${danger?"":"primary"}" id="cYes">${esc(ok)}</button>`, onClose:()=>res(false)});
+    $("cNo").onclick = ()=>{ modalClose=null; closeModal(); res(false); };
+    $("cYes").onclick = ()=>{ modalClose=null; closeModal(); res(true); };
+  });
+}
+const STATE_CLS = {ok:"ok",warn:"warn",crit:"crit",unk:"unk",off:"off"};
+const condColor = c => c<50?"var(--crit)":c<70?"var(--warn)":"var(--ok)";
+
+function updateHUD(){
+  if (!P) return;
+  const r = rankIdx(), cur = RANKS[r][1], nxt = RANKS[r+1] ? RANKS[r+1][1] : null;
+  $("hRank").textContent = rankName();
+  $("hXp").style.width = (nxt ? clamp((P.xp-cur)/(nxt-cur),0,1)*100 : 100) + "%";
+  $("hMoney").textContent = fmt(P.money);
+  $("hMissionBox").hidden = $("hHoursBox").hidden = !S;
+  $("hTests").innerHTML = "";
+  if (S){
+    $("hMission").textContent = mission().title;
+    $("hHours").textContent = `${S.hours.toFixed(1)} / ${S.norm.toFixed(1)}`;
+    $("hHours").style.color = S.hours<=S.norm ? "" : "var(--warn)";
+    $("hTests").innerHTML = requiredTests().map(t=>`<span class="chip ${S.tests[t]?"ok":"todo"}">${S.tests[t]?"✓":"○"} ${esc(TEST_NAME[t])}</span>`).join("");
+  }
+  document.querySelectorAll(".rail .tool").forEach(b=>{ const need = ["order","inspect","sheet","engine","radar","otk"].includes(b.dataset.act); b.hidden = need && !S; });
+  $("tInspect").classList.toggle("on", inspectMode);
+}
+function afterChange(){ save(); updateHUD(); renderCard(); paintAll(); }
+
+/* ---------- карточка детали ---------- */
+function selectPart(id){
+  const old = selected; selected = id; if (old) paintPart(old); if (id) paintPart(id);
+  renderCard();
+}
+function blockersOf(id){ return ACC[id].filter(a=>slot(a).on); }
+function renderCard(){
+  const card = $("card");
+  if (!S || !selected){ card.hidden = true; return; }
+  const id = selected, s = slot(id), t = ST[id], pt = PT[t], st = slotStatus(id);
+  const blk = blockersOf(id), inner = COVERS[id].filter(c=>!slot(c).on);
+  let h = `<header><div><div class="eyebrow">${esc(ZN[SZ[id]])}</div><h3>${esc(label(id))}</h3></div><button class="x" id="cardX" aria-label="Закрыть">×</button></header><div class="body">`;
+  h += `<div><span class="state ${STATE_CLS[st.cls]}">${esc(st.text)}</span></div>`;
+  if (st.cond!=null) h += `<div><div class="meter"><i style="width:${st.cond}%;background:${condColor(st.cond)}"></i></div><div class="num" style="margin-top:4px">Остаточный ресурс ${st.cond}%</div></div>`;
+  else if (st.approx!=null) h += `<div class="note">Визуально ≈${st.approx}%. Точный ресурс покажет дефектовка.</div>`;
+  if (st.detail) h += `<div class="${st.cls==="crit"?"defect":"note"}">${esc(st.detail)}</div>`;
+  h += `<dl class="kv"><dt>Деталь</dt><dd>${esc(pt.name)}</dd>${s.on?`<dt>Установлена</dt><dd>${esc(s.origin)}</dd>`:""}<dt>Дефектовка</dt><dd>${esc(pt.method)}</dd></dl>`;
+  h += `<div class="note">${esc(pt.info)}</div>`;
+  const acts = [];
+  if (s.on){
+    if (s.known<2) acts.push(`<button class="btn" data-a="visual">Внешний осмотр <small>${(0.1*speed()).toFixed(1)} ч</small></button>`);
+    if (s.known<2) acts.push(`<button class="btn primary" data-a="inspect">Дефектовка прибором <small>${(pt.insp*speed()).toFixed(1)} ч</small></button>`);
+    const kit = pt.kit;
+    if (kit && s.known===2 && (s.defect || s.cond<70)){
+      const have = P.kits[kit]||0, ok = s.cond>=KITS[kit].min;
+      acts.push(`<button class="btn" data-a="repair" ${ok?"":"disabled"}>Ремонт: ${esc(KITS[kit].name)} (есть ${have}) <small>${(KITS[kit].hours*speed()).toFixed(1)} ч</small></button>`);
+      if (!ok) acts.push(`<div class="note">Ресурс ниже ${KITS[kit].min}% — ремонту не подлежит, только замена.</div>`);
+    }
+    acts.push(`<button class="btn" data-a="remove" ${blk.length?"disabled":""}>Снять узел <small>${(pt.rm*speed()).toFixed(1)} ч</small></button>`);
+    if (blk.length) acts.push(`<div class="note">Нет доступа: сначала снимите ${blk.map(b=>`«${esc(label(b))}»`).join(", ")}.</div>`);
+  } else {
+    const items = P.inv.filter(it=>it.type===t);
+    if (inner.length) acts.push(`<div class="note">Сначала установите: ${inner.map(b=>`«${esc(label(b))}»`).join(", ")}.</div>`);
+    if (!items.length) acts.push(`<div class="note">На складе нет подходящей детали.</div>`);
+    for (const it of items){
+      const good = it.verified ? !(it.defect || it.cond<OTK_MIN) : null;
+      const desc = it.verified ? `${it.cond}%${it.defect?" · брак":""}` : `≈${it.claimed}% · не проверена`;
+      acts.push(`<button class="btn ${good?"primary":""}" data-a="install" data-uid="${it.uid}" ${inner.length?"disabled":""}>Установить: ${esc(it.removed?"снятая":it.origin)} ${esc(desc)} <small>${(pt.inst*speed()).toFixed(1)} ч</small></button>`);
+    }
+    acts.push(`<button class="btn" data-a="buy">Заказать в снабжении <small>${fmt(priceNew(t))}</small></button>`);
+  }
+  acts.push(`<button class="btn" data-a="focus">Приблизить камеру</button>`);
+  h += `<div class="actions">${acts.join("")}</div></div>`;
+  card.innerHTML = h; card.hidden = false;
+  $("cardX").onclick = ()=>selectPart(null);
+  card.querySelectorAll("[data-a]").forEach(b=>b.onclick = ()=>partAction(id, b.dataset.a, +b.dataset.uid));
+}
+async function partAction(id, a, uid){
+  const s = slot(id), t = ST[id], pt = PT[t];
+  if (a==="focus"){ focusOn(id); return; }
+  if (a==="buy"){ openShop(t); return; }
+  if (a==="visual"){
+    const h = addHours(.1, "Внешний осмотр: "+label(id));
+    if (s.defect && s.visible){ s.known = Math.max(s.known,1); s.approx = clamp(Math.round((s.cond+rint(-8,8))/5)*5,5,95); toast(`Видно повреждение: ${s.defect}`,"crit"); }
+    else if (s.defect && s.claimed==null && !S.reported[id] && (s.suspect || Math.random()<.3+.1*rankIdx())){ s.suspect = true; toast(`Косвенный признак: ${pt.clue}. Нужна дефектовка.`,"warn"); }
+    else if (S.reported[id] && s.defect && !s.visible) toast("Снаружи дефект не виден. Проведите дефектовку прибором.","warn");
+    else { if (s.claimed==null) s.known = Math.max(s.known,1); toast(`Видимых повреждений нет (${h.toFixed(1)} ч).`); }
+  }
+  if (a==="inspect"){
+    const h = addHours(pt.insp, "Дефектовка: "+label(id));
+    s.known = 2; s.suspect = false; s.claimed = null;
+    if (s.defect || s.cond<OTK_MIN){ toast(`${label(id)}: НЕИСПРАВЕН — ${s.defect||"износ сверх допуска"}, ресурс ${s.cond}% (${h.toFixed(1)} ч)`,"crit",6000); markFound(id); }
+    else toast(`${label(id)}: ${s.cond<70?"износ в допуске":"исправен"}, ресурс ${s.cond}%`, s.cond<70?"warn":"ok");
+  }
+  if (a==="remove"){
+    if (blockersOf(id).length) return;
+    const h = addHours(pt.rm, "Демонтаж: "+label(id));
+    P.inv.push({uid:P.uid++, type:t, cond:s.cond, claimed:s.cond, defect:s.defect, origin:s.origin, verified:true, paid:0, removed:true});
+    if (s.defect) markFound(id);
+    toast(`Снято за ${h.toFixed(1)} ч: ${label(id)} — ${s.defect||s.cond<OTK_MIN?`неисправно (${s.defect||"износ"}, ${s.cond}%)`:`годно, ${s.cond}%`}. Деталь на складе.`, s.defect?"warn":"ok", 5500);
+    Object.assign(s,{on:false,cond:0,defect:null,known:0,suspect:false,claimed:null,origin:"—",approx:null,visible:false});
+    touch(id); animPart(id,true);
+  }
+  if (a==="install"){
+    const it = P.inv.find(i=>i.uid===uid); if(!it) return;
+    if (COVERS[id].some(c=>!slot(c).on)) return;
+    if (it.verified && (it.defect || it.cond<OTK_MIN) && !await confirmBox("Эта деталь неисправна, ОТК её не примет. Всё равно установить?","Установить",true)) return;
+    if (!it.verified && !await confirmBox("Б/У деталь не прошла входной контроль и может иметь скрытый дефект. Устанавливать?","Установить")) return;
+    const h = addHours(pt.inst, "Монтаж: "+label(id));
+    Object.assign(s,{on:true,cond:it.cond,defect:it.defect,origin:it.removed&&it.origin==="штатная"?"штатная":it.origin,known:it.verified?2:1,suspect:false,claimed:it.verified?null:it.claimed,approx:null,visible:false});
+    P.inv = P.inv.filter(i=>i.uid!==uid);
+    touch(id); animPart(id,false);
+    toast(`Установлено за ${h.toFixed(1)} ч: ${label(id)}. Отметка в формуляре сделана.`,"ok");
+  }
+  if (a==="repair"){
+    const kit = pt.kit, k = KITS[kit];
+    if ((P.kits[kit]||0)<=0){ toast(`Нет ремкомплекта «${k.name}». Закажите его в снабжении.`,"warn"); openShop("kits"); return; }
+    if (k.access && blockersOf(id).length){ toast("Для ремонта нужен доступ: снимите "+blockersOf(id).map(label).join(", "),"warn"); return; }
+    P.kits[kit]--; const h = addHours(k.hours, "Ремонт: "+label(id));
+    Object.assign(s,{cond:rint(82,92),defect:null,origin:"отремонтирована",known:2});
+    touch(id); toast(`Ремонт за ${h.toFixed(1)} ч: ${k.work}. Ресурс ${s.cond}%.`,"ok",5500);
+  }
+  afterChange();
+}
+
+/* ---------- наряды ---------- */
+function openBoard(){
+  const r = rankIdx();
+  const html = `<p class="note" style="margin:0">Ваша должность: <b style="color:var(--fg)">${esc(rankName())}</b>. Наряды открываются с повышением. Повторное выполнение оплачивается полностью, опыт — вдвое меньше.</p>
+  <div class="missions">${MISSIONS.map((m,i)=>{ const lock = m.rank>r, done = P.completed[m.id]||0;
+    return `<button class="mcard ${lock?"locked":""}" data-m="${i}" ${lock?'aria-disabled="true"':""}>
+      <span class="eyebrow">Наряд 558/${String(i+1).padStart(2,"0")} ${done?`<span class="done">· выполнен ×${done}</span>`:""}</span>
+      <h3>${esc(m.title)}</h3>
+      <span class="meta"><span class="num">${fmt(m.reward)}</span><span>опыт +${m.xp}</span></span>
+      ${lock?`<span class="meta">Требуется: ${esc(RANKS[m.rank][0])}</span>`:""}</button>`; }).join("")}</div>`;
+  const body = modal("Ремонтные наряды цеха", html);
+  body.querySelectorAll(".mcard").forEach(b=>b.onclick = ()=>{ const m = MISSIONS[+b.dataset.m]; if (m.rank>r){ toast("Наряд откроется на должности «"+RANKS[m.rank][0]+"»","warn"); return; } openOrder(m,true); });
+}
+function orderHTML(m){
+  const inMission = S && S.mission===m.id;
+  return `<div class="order" style="display:flex;flex-direction:column;gap:14px">
+    <div class="grid"><div><span class="eyebrow">Оплата</span><b class="num">${fmt(m.reward)}</b></div><div><span class="eyebrow">Опыт</span><b>+${m.xp}</b></div>
+      <div><span class="eyebrow">Норматив</span><b class="num">${(inMission?S.norm:missionNorm(m)).toFixed(1)} нормо-ч</b></div>
+      <div><span class="eyebrow">Изделие</span><b>МиГ-29БМ ${inMission?"№ "+S.bort:""}</b></div></div>
+    <div><span class="eyebrow">Поступил из: ${esc(UNIT)}</span></div>
+    <div><h3 style="font-size:15px;margin-bottom:6px">Неисправность</h3><p>${esc(m.story)}</p></div>
+    <div><h3 style="font-size:15px;margin-bottom:6px">Цель</h3><p>${esc(m.goal)}</p></div>
+    <div><h3 style="font-size:15px;margin-bottom:6px">Узлы, подлежащие замене или ремонту</h3><ul>${m.faults.map(f=>`<li><b>${esc(label(f[0]))}</b> — ${esc(f[3])}</li>`).join("")}</ul></div>
+    <div><h3 style="font-size:15px;margin-bottom:6px">Обязательные проверки</h3><ul>${(inMission?requiredTests():m.tests).map(t=>`<li>${esc(TEST_NAME[t])}${inMission?(S.tests[t]?" — <span style='color:var(--ok)'>выполнена</span>":" — <span style='color:var(--warn)'>не выполнена</span>"):""}</li>`).join("")}</ul>
+    <p class="note" style="margin-top:6px">После работ на двигателе, РЛС, гидросистеме или шасси нужная проверка добавляется автоматически.</p></div></div>`;
+}
+function openOrder(m, fromBoard){
+  const canTake = fromBoard && !S;
+  modal(`Наряд-задание: ${m.title}`, orderHTML(m), {footer: fromBoard ? (S ? `<span class="note">Сначала сдайте или закройте текущий наряд.</span><button class="mini" id="oClose">Закрыть</button>` : `<button class="mini" id="oClose">Назад</button><button class="mini primary" id="oTake">Принять наряд</button>`) :
+    `<button class="mini" id="oAbandon">Отказаться от наряда</button><button class="mini primary" id="oClose">К работе</button>`});
+  $("oClose").onclick = fromBoard ? openBoard : closeModal;
+  if (canTake) $("oTake").onclick = ()=>{ closeModal(); startMission(m); syncPlane(); selectPart(null); camTo("all");
+    toast(`Тягач закатил МиГ-29БМ № ${S.bort} в цех. Самолёт на подъёмниках, наряд открыт.`,"ok",5500);
+    toast("Кликайте по деталям самолёта, чтобы осмотреть их. Режим осмотра (I) подсвечивает состояние узлов.","",7000); afterChange(); };
+  if ($("oAbandon")) $("oAbandon").onclick = async ()=>{ if (await confirmBox("Самолёт передадут другой бригаде. Установленные детали и потраченные деньги не вернутся.","Отказаться",true)){ S=null; selected=null; syncPlane(); afterChange(); toast("Наряд закрыт без выполнения."); } };
+}
+
+/* ---------- ведомость ---------- */
+function openSheet(){
+  let rows = "";
+  for (const [z,zn] of ZONES){ rows += `<tr class="grp"><td colspan="4">${esc(zn)}</td></tr>`;
+    for (const id of SID.filter(i=>SZ[i]===z)){ const st = slotStatus(id), s = slot(id);
+      rows += `<tr class="click" data-id="${id}"><td>${esc(label(id))}${st.detail?`<div class="sub">${esc(st.detail)}</div>`:""}</td>
+        <td><span class="state ${STATE_CLS[st.cls]}">${esc(st.text)}</span></td><td class="r num">${st.cond!=null?st.cond+"%":st.approx!=null?"≈"+st.approx+"%":"—"}</td><td class="sub">${s.on?esc(s.origin):""}</td></tr>`; } }
+  const body = modal(`Ведомость дефектов · МиГ-29БМ № ${S.bort}`, `<p class="note" style="margin:0">Нажмите на строку, чтобы найти узел на самолёте. ОТК принимает узлы с ресурсом не ниже ${OTK_MIN}% и без дефектов.</p>
+    <div class="tblwrap"><table class="tbl"><thead><tr><th>Узел</th><th>Состояние</th><th class="r">Ресурс</th><th>Деталь</th></tr></thead><tbody>${rows}</tbody></table></div>`);
+  body.querySelectorAll("tr.click").forEach(tr=>tr.onclick = ()=>{ closeModal(); selectPart(tr.dataset.id); focusOn(tr.dataset.id); });
+}
+
+/* ---------- снабжение ---------- */
+let shopTab = "need";
+function neededTypes(){
+  const parts = new Set(), kits = new Set(); if (!S) return {parts,kits};
+  for (const id of SID){ const s = slot(id), st = slotStatus(id), t = ST[id];
+    const spare = P.inv.some(it=>it.type===t && !(it.verified && (it.defect||it.cond<OTK_MIN)));
+    if ((s.on && (st.cls==="crit" || (S.reported[id] && s.known<2))) || (!s.on && !spare)) parts.add(t);
+    const k = PT[t].kit; if (k && s.on && s.known===2 && (s.defect||s.cond<50) && s.cond>=KITS[k].min) kits.add(k); }
+  return {parts,kits};
+}
+function openShop(focus){
+  if (focus && PT[focus]) shopTab = PT[focus].group; else if (focus==="kits") shopTab = "kits"; else if (!S && shopTab==="need") shopTab = GROUPS[0];
+  const need = neededTypes();
+  const tabs = [...(S?[["need","Нужно по наряду"]]:[]), ...GROUPS.map(g=>[g,g]), ["kits","Ремкомплекты"]];
+  let rows = "";
+  if (shopTab==="kits"){
+    rows = Object.entries(KITS).map(([k,v])=>`<tr><td>${need.kits.has(k)?'<span class="star">★</span> ':""}${esc(v.name)}<div class="sub">${esc(v.work)} · ресурс узла от ${v.min}% · ${v.hours} ч</div></td>
+      <td class="r"><button class="mini primary" data-kit="${k}">${fmt(priceKit(k))}</button></td><td class="r num">${P.kits[k]||0}</td></tr>`).join("");
+    rows = `<thead><tr><th>Ремкомплект</th><th class="r">Купить</th><th class="r">На складе</th></tr></thead><tbody>${rows}</tbody>`;
+  } else {
+    const list = Object.entries(PT).filter(([t,p])=> shopTab==="need" ? need.parts.has(t) : p.group===shopTab);
+    rows = list.map(([t,p])=>`<tr><td>${need.parts.has(t)?'<span class="star">★</span> ':""}${esc(p.name)}<div class="sub">${esc(p.info)}</div></td>
+      <td class="r"><button class="mini primary" data-new="${t}">${fmt(priceNew(t))}</button></td>
+      <td class="r">${p.used?`<button class="mini" data-used="${t}">${fmt(priceUsed(t))}</button>`:'<span class="sub">только новые</span>'}</td>
+      <td class="r num">${P.inv.filter(i=>i.type===t).length}</td></tr>`).join("") || `<tr><td colspan="4" class="sub">По известным данным дефектовки заказывать нечего. Продефектуйте узлы, чтобы узнать, что нужно.</td></tr>`;
+    rows = `<thead><tr><th>Деталь</th><th class="r">Новая, 100%</th><th class="r">Б/У с донора</th><th class="r">Склад</th></tr></thead><tbody>${rows}</tbody>`;
+  }
+  const d = Math.round(discount()*100);
+  const body = modal("Терминал снабжения 558 АРЗ", `<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:baseline"><span>Счёт: <b class="num">${fmt(P.money)}</b></span>${d?`<span class="note">Скидка по должности ${d}%</span>`:""}
+    <span class="note">Б/У детали дешевле, но изношены (ресурс 55–82%) и в ${LATENT_CHANCE*100}% случаев скрывают брак — делайте входной контроль на складе.</span></div>
+    <div class="tabs">${tabs.map(([k,n])=>`<button data-tab="${esc(k)}" class="${k===shopTab?"on":""}">${esc(n)}</button>`).join("")}</div>
+    <div class="tblwrap"><table class="tbl">${rows}</table></div>`);
+  body.querySelectorAll("[data-tab]").forEach(b=>b.onclick = ()=>{ shopTab = b.dataset.tab; openShop(); });
+  body.querySelectorAll("[data-new]").forEach(b=>b.onclick = ()=>buyPart(b.dataset.new,false));
+  body.querySelectorAll("[data-used]").forEach(b=>b.onclick = ()=>buyPart(b.dataset.used,true));
+  body.querySelectorAll("[data-kit]").forEach(b=>b.onclick = ()=>{ const k=b.dataset.kit, pr=priceKit(k); if(P.money<pr){ toast("Недостаточно средств на счёте.","crit"); return; }
+    spend(pr); P.kits[k]=(P.kits[k]||0)+1; toast(`Куплен: ${KITS[k].name}.`,"ok"); afterChange(); openShop(); });
+}
+function buyPart(t, used){
+  const pr = used ? priceUsed(t) : priceNew(t);
+  if (P.money<pr){ toast("Недостаточно средств на счёте. Возьмите сверхурочную смену в личном деле.","crit"); return; }
+  spend(pr);
+  const it = {uid:P.uid++, type:t, paid:pr, removed:false};
+  if (!used){ Object.assign(it,{cond:100,claimed:100,defect:null,origin:"новая",verified:true}); toast(`Новая деталь «${PT[t].short}» на складе.`,"ok"); }
+  else { const c = rint(55,82); Object.assign(it,{claimed:c,origin:"Б/У",verified:false});
+    if (Math.random()<LATENT_CHANCE) Object.assign(it,{cond:rint(18,38),defect:pick(LATENT)}); else Object.assign(it,{cond:c,defect:null});
+    toast(`Б/У «${PT[t].short}» с борта-донора № ${rint(10,99)}, по паспорту ≈${c}%. Рекомендуется входной контроль.`,"warn",5500); }
+  P.inv.push(it);
+  afterChange(); openShop();
+}
+
+/* ---------- склад ---------- */
+function openStock(){
+  const rows = P.inv.map(it=>{ const p = PT[it.type];
+    const st = it.verified ? (it.defect||it.cond<OTK_MIN ? `<span class="state crit">брак ${it.cond}%</span>` : `<span class="state ${it.cond<70?"warn":"ok"}">${it.cond}%</span>`) : `<span class="state unk">≈${it.claimed}% · не проверена</span>`;
+    return `<tr><td>${esc(p.short)}<div class="sub">${it.defect&&it.verified?esc(it.defect):""}</div></td><td class="sub">${it.removed?"снята с борта":esc(it.origin)}</td><td>${st}</td>
+      <td class="r" style="white-space:nowrap">${it.verified?"":`<button class="mini" data-ic="${it.uid}">Вх. контроль</button> `}<button class="mini" data-sell="${it.uid}">Сдать</button></td></tr>`; }).join("");
+  const kits = Object.entries(P.kits).filter(([,v])=>v>0).map(([k,v])=>`<span class="chip">${esc(KITS[k].name)} ×${v}</span>`).join("");
+  const body = modal("Склад запчастей", `${P.inv.length?`<div class="tblwrap"><table class="tbl"><thead><tr><th>Деталь</th><th>Происхождение</th><th>Состояние</th><th class="r">Действия</th></tr></thead><tbody>${rows}</tbody></table></div>`
+    :`<p class="note" style="margin:0">Стеллажи пусты. Детали заказываются в терминале снабжения, снятые с самолёта узлы тоже попадают сюда.</p>`}
+    ${kits?`<div><div class="eyebrow" style="margin-bottom:6px">Ремкомплекты</div><div class="chips">${kits}</div></div>`:""}
+    <p class="note" style="margin:0">Входной контроль занимает 0,5 нормо-ч. Бракованную Б/У деталь поставщик забирает с полным возвратом денег. Ремфонд завода принимает ненужные детали: исправные — до 25% цены, брак — 5%.</p>`);
+  body.querySelectorAll("[data-ic]").forEach(b=>b.onclick = ()=>{ const it = P.inv.find(i=>i.uid===+b.dataset.ic); it.verified = true;
+    if (S) addHours(.5, "Входной контроль: "+PT[it.type].short);
+    if (it.defect){ if (it.paid && it.origin==="Б/У"){ P.money += it.paid; P.stats.spent -= it.paid; P.inv = P.inv.filter(i=>i!==it); toast(`Брак: ${it.defect}. Деталь возвращена поставщику, ${fmt(it.paid)} зачислены на счёт.`,"warn",6000); }
+      else toast(`Брак: ${it.defect}.`,"crit"); }
+    else toast(`Годна, фактический ресурс ${it.cond}%.`,"ok");
+    afterChange(); openStock(); });
+  body.querySelectorAll("[data-sell]").forEach(b=>b.onclick = ()=>{ const it = P.inv.find(i=>i.uid===+b.dataset.sell), p = PT[it.type];
+    const bad = it.defect||it.cond<OTK_MIN, v = Math.round((!it.verified ? p.price*.1 : bad ? p.price*.05 : p.price*.25*it.cond/100)/10)*10;
+    P.inv = P.inv.filter(i=>i!==it); P.money += v; toast(`Сдано в ремфонд: ${p.short}, +${fmt(v)}`,"ok"); afterChange(); openStock(); });
+}
+/* ═════════════════════════ ГОНКА ДВИГАТЕЛЕЙ ═════════════════════════ */
+let engineActive = false, E = null;
+const STG = [
+  {name:"МАЛЫЙ ГАЗ",short:"МГ",N:70,egt:430,oil:3.0,vib:6,load:0},
+  {name:"НОМИНАЛ",short:"НОМ",N:94,egt:600,oil:3.6,vib:12,load:.6},
+  {name:"МАКСИМАЛ",short:"МАКС",N:100,egt:680,oil:3.9,vib:15,load:.85},
+  {name:"ФОРСАЖ",short:"ФОРС",N:101,egt:720,oil:4.0,vib:18,load:1},
+];
+const LIM = {egtW:780, egtC:840, vibW:32, vibC:45, hydW:190, hydC:170};
+const HOLD = 4, CRIT_T = 3;
+
+/* ---------- звук ---------- */
+const AU = {ctx:null, on:true, nodes:null};
+function audioStart(){
+  if (!AU.on) return;
+  try {
+    const c = AU.ctx || (AU.ctx = new (window.AudioContext||window.webkitAudioContext)()); c.resume();
+    const buf = c.createBuffer(1, c.sampleRate*2, c.sampleRate), d = buf.getChannelData(0); let b = 0;
+    for (let i=0;i<d.length;i++){ b = (b + .02*(Math.random()*2-1))/1.02; d[i] = b*3.5; }
+    const master = c.createGain(); master.gain.value = 0; master.connect(c.destination);
+    const mk = (type, f)=>{ const s = c.createBufferSource(); s.buffer = buf; s.loop = true; const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; const g = c.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(master); s.start(); return {s,fl,g}; };
+    const roar = mk("bandpass", 400), ab = mk("lowpass", 220);
+    const osc = c.createOscillator(); osc.type = "sawtooth"; osc.frequency.value = 300; const og = c.createGain(); og.gain.value = 0; const of = c.createBiquadFilter(); of.type="lowpass"; of.frequency.value=2400;
+    osc.connect(of); of.connect(og); og.connect(master); osc.start();
+    master.gain.setTargetAtTime(.5, c.currentTime, .4);
+    AU.nodes = {master, roar, ab, osc, og};
+  } catch(e){ AU.nodes = null; }
+}
+function audioUpdate(N, abOn){
+  const n = AU.nodes; if (!n) return; const t = AU.ctx.currentTime, k = N/100;
+  n.roar.fl.frequency.setTargetAtTime(200+k*900, t, .2); n.roar.g.gain.setTargetAtTime(.15+k*.6, t, .2);
+  n.osc.frequency.setTargetAtTime(120+k*780, t, .3); n.og.gain.setTargetAtTime(.012+k*.03, t, .3);
+  n.ab.g.gain.setTargetAtTime(abOn?1.2:0, t, .25);
+}
+function audioStop(){ const n = AU.nodes; if (!n) return; const t = AU.ctx.currentTime; n.master.gain.setTargetAtTime(0,t,.5);
+  setTimeout(()=>{ try{ n.roar.s.stop(); n.ab.s.stop(); n.osc.stop(); }catch(e){} }, 1600); AU.nodes = null; }
+function beep(f=880, d=.12, v=.15){ if (!AU.on || !AU.ctx) return; try{ const c = AU.ctx, o = c.createOscillator(), g = c.createGain(); o.type="square"; o.frequency.value=f; g.gain.value=v; o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime+d); }catch(e){} }
+function boom(){ if (!AU.on || !AU.ctx) return; try{ const c = AU.ctx, buf = c.createBuffer(1,c.sampleRate,c.sampleRate), d = buf.getChannelData(0);
+  for (let i=0;i<d.length;i++) d[i] = (Math.random()*2-1)*Math.pow(1-i/d.length,3); const s = c.createBufferSource(); s.buffer = buf; const f = c.createBiquadFilter(); f.type="lowpass"; f.frequency.value=500;
+  const g = c.createGain(); g.gain.value = 1.4; s.connect(f); f.connect(g); g.connect(c.destination); s.start(); }catch(e){} }
+
+/* ---------- приборы ---------- */
+function drawDial(cv, title, unit, val, min, max, zones, txt){
+  const g = cv.getContext("2d"), W2 = cv.width, cx = W2/2, cy = W2/2+8, R = W2*.4;
+  const a0 = Math.PI*.75, a1 = Math.PI*2.25, ang = v=>a0+(clamp(v,min,max)-min)/(max-min)*(a1-a0);
+  g.clearRect(0,0,W2,W2);
+  g.lineWidth = 14;
+  g.strokeStyle = "#2a353d"; g.beginPath(); g.arc(cx,cy,R,a0,a1); g.stroke();
+  for (const [f,t,c] of zones){ g.strokeStyle = c; g.beginPath(); g.arc(cx,cy,R,ang(f),ang(t)); g.stroke(); }
+  g.strokeStyle = "#8ea0aa"; g.lineWidth = 2;
+  for (let i=0;i<=10;i++){ const a = a0+(a1-a0)*i/10; g.beginPath(); g.moveTo(cx+Math.cos(a)*(R-22),cy+Math.sin(a)*(R-22)); g.lineTo(cx+Math.cos(a)*(R-10),cy+Math.sin(a)*(R-10)); g.stroke(); }
+  const a = ang(val); g.strokeStyle = "#f4f7f8"; g.lineWidth = 5; g.beginPath(); g.moveTo(cx,cy); g.lineTo(cx+Math.cos(a)*(R-14),cy+Math.sin(a)*(R-14)); g.stroke();
+  g.fillStyle = "#e8c04a"; g.beginPath(); g.arc(cx,cy,9,0,7); g.fill();
+  g.textAlign = "center"; g.fillStyle = "#94a5ae"; g.font = "600 24px 'IBM Plex Mono', monospace"; g.fillText(title, cx, cy-R*.38);
+  g.fillStyle = "#e3e9eb"; g.font = "600 38px 'IBM Plex Mono', monospace"; g.fillText(txt, cx, cy+R*.62);
+  g.fillStyle = "#94a5ae"; g.font = "20px 'IBM Plex Mono', monospace"; g.fillText(unit, cx, cy+R*.9);
+}
+function drawDials(){
+  const o = E.stage===0 ? [1.4,2.0] : [2.0,2.6];
+  drawDial($("dN"), "N", "% оборотов", E.N, 0, 110, [[100,110,"#5f717c"]], E.N.toFixed(1));
+  drawDial($("dT"), "Тг", "°C за турбиной", E.egt, 300, 900, [[LIM.egtW,LIM.egtC,"#f0923a"],[LIM.egtC,900,"#ea4b4b"]], E.egt.toFixed(0));
+  drawDial($("dO"), "Рм", "кгс/см² масло", E.oil, 0, 6, [[0,o[0],"#ea4b4b"],[o[0],o[1],"#f0923a"]], E.oil.toFixed(2));
+  drawDial($("dV"), "V", "мм/с вибрация", E.vib, 0, 60, [[LIM.vibW,LIM.vibC,"#f0923a"],[LIM.vibC,60,"#ea4b4b"]], E.vib.toFixed(1));
+  drawDial($("dH"), "Ргс", "кгс/см² гидро", E.hyd, 100, 240, [[100,LIM.hydC,"#ea4b4b"],[LIM.hydC,LIM.hydW,"#f0923a"]], E.hyd.toFixed(0));
+}
+
+/* ---------- логика ---------- */
+function engineMenu(){
+  const req = requiredTests().filter(t=>t.startsWith("engine"));
+  const body = modal("Гонка двигателей РД-33", `<p class="note" style="margin:0">Самолёт выкатят на газовочную площадку завода. Выводите двигатель по режимам <b style="color:var(--fg)">МАЛЫЙ ГАЗ → НОМИНАЛ → МАКСИМАЛ → ФОРСАЖ</b>, выдерживая каждый ${HOLD} секунды. Следите за температурой газов, давлением масла, вибрацией и гидросистемой. Если стрелка в красной зоне дольше ${CRIT_T} секунд, а режим не снижен, — пожар или помпаж, наряд провален.</p>
+    ${req.length?`<div class="chips">${req.map(t=>`<span class="chip ${S.tests[t]?"ok":"todo"}">${S.tests[t]?"✓":"○"} ${esc(TEST_NAME[t])}</span>`).join("")}</div>`:`<p class="note" style="margin:0">По наряду гонка пока не требуется, но её можно провести для диагностики.</p>`}
+    <p class="note" style="margin:0">Управление: W / ▲ — прибавить режим, S / ▼ — убрать, Пробел — стоп-кран.</p>`,
+    {footer:`<button class="mini" id="eL">Двигатель №1 (левый)</button><button class="mini" id="eR">Двигатель №2 (правый)</button>`});
+  $("eL").onclick = ()=>{ closeModal(); startEngineRun("L"); };
+  $("eR").onclick = ()=>{ closeModal(); startEngineRun("R"); };
+}
+function enginePrechecks(side){
+  const p = [];
+  for (const id of SIDE[side]) if (!slot(id).on) p.push(`двигатель не собран: нет узла «${label(id)}»`);
+  for (const id of GEAR) if (!slot(id).on) p.push(`шасси не собрано («${label(id)}») — выкатка невозможна`);
+  for (const id of [...FUEL,...HYDRO,...CTRL]) if (!slot(id).on) p.push(`система разгерметизирована: нет «${label(id)}»`);
+  return p;
+}
+let skyTex = null;
+function setWorld(pad){
+  W.hangar.visible = !pad; W.pad.visible = pad;
+  if (pad){ skyTex = skyTex || ctex(8,256,(g,w,h)=>{ const gr = g.createLinearGradient(0,0,0,h); gr.addColorStop(0,"#5d8fc4"); gr.addColorStop(.55,"#a9c7e2"); gr.addColorStop(1,"#dfe8ee"); g.fillStyle=gr; g.fillRect(0,0,w,h); });
+    scene.background = skyTex; scene.fog = new THREE.Fog("#c9d9e6", 60, 260); W.key.intensity = 1.7; W.hemi.intensity = .9; W.hemi.color.set("#dbe9f7"); W.fill.intensity = 0; W.warm.intensity = 0; }
+  else { scene.background = new THREE.Color("#161d22"); scene.fog = new THREE.Fog("#161d22", 40, 90); W.key.intensity = 1.25; W.hemi.intensity = .65; W.hemi.color.set("#d6e4ef"); W.fill.intensity = .6; W.warm.intensity = .5; }
+}
+function uiMode(mode){ // "hangar" | "engine" | "radar" | "menu"
+  const h = mode==="hangar";
+  $("hud").hidden = !(h || mode==="radar"); $("rail").hidden = $("cams").hidden = $("hint").hidden = !h; $("card").hidden = !h || !selected;
+  $("eng").hidden = mode!=="engine"; $("radar").hidden = mode!=="radar";
+  if (h) renderCard();
+}
+async function startEngineRun(side){
+  const pr = enginePrechecks(side);
+  if (pr.length){ modal("Выкатка запрещена", `<ul>${pr.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`, {narrow:true}); return; }
+  addHours(1.5, `Гонка двигателя ${side==="L"?"№1":"№2"}`); P.stats.runs++; save();
+  const c = effCond;
+  E = {side, stage:0, N:0, egt:20, oil:0, vib:0, hyd:120, soak:0, egtSpike:0, vibSpike:0, oilSpike:0, surge:false, surgeT:0, hold:0, passed:[false,false,false,false],
+       abFail:0, critT:0, grace:0, warned:new Set(), max:{egt:0,vib:0}, min:{oil:99,hyd:999}, t:0, phase:"prep", noise:{e:0,v:0,o:0,h:0}, nt:0, ending:false,
+       k:{comp:c("comp_"+side),turb:c("turb_"+side),reg:c("reg_"+side),oilp:c("oilpump_"+side),oilf:c("oilfilt_"+side),noz:c("nozzle_"+side),ab:c("ab_"+side),
+          htank:c("hydro_tank"),hoses:c("hydro_hoses"),hfilt:c("hydro_filter"),stab:Math.min(c("stab_L"),c("stab_R"))},
+       leak:FUEL.some(x=>slot(x).defect||slot(x).cond<50)};
+  selectPart(null); inspectMode = false; setXray(false); paintAll();
+  setWorld(true); camTo(side==="L"?"engineRunL":"engineRunR"); uiMode("engine");
+  $("engTitle").textContent = `Газовочная площадка · РД-33 ${side==="L"?"№1 (левый)":"№2 (правый)"}`;
+  $("engLog").innerHTML = ""; renderStages(); drawDials(); $("engAlarm").hidden = true; $("engFinish").disabled = true;
+  engineActive = true;
+  elog(`МиГ-29БМ № ${S.bort} на газовочной площадке: колодки, швартовка, газоотбойник, пожарный расчёт.`);
+  if (E.leak){
+    const ok = await choiceBox("Течь топлива", "Техник докладывает: из-под фюзеляжа в районе бака №3 капает керосин.", [["stop","Прекратить подготовку, в цех"],["go","Запускать — течь небольшая"]]);
+    if (ok==="go"){ catastrophe("ПОЖАР НА ГАЗОВОЧНОЙ ПЛОЩАДКЕ","Пары керосина из негерметичного бака №3 воспламенились от горячей части двигателя при запуске.","fire"); return; }
+    toast("Правильно. Сначала устраните течь: уплотнения бака №3, топливопровод, люк-лаз.","warn",6000); endEngineRun(); return;
+  }
+  audioStart(); E.phase = "start"; elog("РУД «СТОП». Запущена ВСУ, нажата кнопка «ЗАПУСК».");
+}
+function choiceBox(title, text, opts){
+  return new Promise(res=>{
+    modal(title, `<p style="margin:0;line-height:1.5">${esc(text)}</p>`, {narrow:true, footer:opts.map(([k,l],i)=>`<button class="mini ${i?"":"primary"}" data-k="${k}">${esc(l)}</button>`).join(""), onClose:()=>res(opts[0][0])});
+    document.querySelectorAll("#mFoot [data-k]").forEach(b=>b.onclick = ()=>{ modalClose = null; closeModal(); res(b.dataset.k); });
+  });
+}
+function elog(t){ const d = document.createElement("div"); d.textContent = t; $("engLog").prepend(d); while($("engLog").children.length>12) $("engLog").lastChild.remove(); }
+function renderStages(){
+  $("engStages").innerHTML = STG.map((s,i)=>`<span class="${E.passed[i]?"pass":""} ${i===E.stage?"cur":""}">${s.short}${E.passed[i]?" ✓":""}${i===E.stage&&!E.passed[i]?`<i style="width:${clamp(E.hold/HOLD,0,1)*100}%"></i>`:""}</span>`).join("");
+  $("engMode").textContent = STG[E.stage].name;
+  $("engFinish").disabled = !E.passed.every(Boolean);
+}
+function targets(){
+  const st = STG[E.stage], k = E.k, L = st.load, d = (v,r)=>Math.max(0,r-v);
+  let egt = st.egt + d(k.turb,95)*1.3*(.5+L) + d(k.reg,90)*.7*L + (E.stage===3 ? d(k.noz,90)*1.0 : 0) + E.soak*6 + E.egtSpike;
+  let vib = st.vib + d(k.comp,95)*.38*(.4+L) + E.vibSpike;
+  let oil = st.oil - d(k.oilp,90)*.04 - d(k.oilf,80)*.015 + E.oilSpike;
+  let N = st.N + (k.reg<55 ? Math.sin(E.t*1.7)*(55-k.reg)*.08 : 0);
+  let hyd = 212 - d(k.htank,70) - d(k.hoses,70)*.8 - d(k.hfilt,70)*.3 - d(k.stab,70)*.3;
+  if (E.surge){ egt += 80; vib += 20; N -= 6; }
+  return {N, egt:egt+E.noise.e, vib:vib+E.noise.v, oil:oil+E.noise.o, hyd:hyd+E.noise.h};
+}
+function levels(){
+  const o = E.stage===0 ? [2.0,1.4] : [2.6,2.0];
+  return {egt:E.egt>=LIM.egtC?2:E.egt>=LIM.egtW?1:0, vib:E.vib>=LIM.vibC?2:E.vib>=LIM.vibW?1:0, oil:E.oil<o[1]?2:E.oil<o[0]?1:0, hyd:E.hyd<LIM.hydC?2:E.hyd<LIM.hydW?1:0};
+}
+const PNAME = {egt:"температура газов", vib:"вибрация", oil:"давление масла", hyd:"давление в гидросистеме"};
+function engineTick(dt){
+  if (!E || E.ending) return;
+  E.t += dt;
+  const approach = (cur, tgt, tau)=> cur + (tgt-cur)*(1-Math.exp(-dt/tau));
+  if (E.phase==="start"){
+    const hang = E.k.reg<35;
+    const tgtN = hang && E.N>40 ? 45 : 72;
+    E.N = approach(E.N, tgtN, 1.3); E.egt = approach(E.egt, hang && E.N>40 ? 900 : 520, hang?2.5:1.6); E.oil = approach(E.oil, 2.6, 1.2); E.vib = approach(E.vib, 5, 1); E.hyd = approach(E.hyd, 200, 1.5);
+    if (hang && E.N>40){
+      E.critT += dt; showAlarm(`ЗАВИСАНИЕ ОБОРОТОВ ПРИ ЗАПУСКЕ · Тг ${E.egt.toFixed(0)} °C — СТОП-КРАН!`, true);
+      if (E.critT>4){ catastrophe("ГОРЯЧИЙ ЗАПУСК — ПОЖАР ДВИГАТЕЛЯ","Разрегулированный насос-регулятор переобогатил смесь, обороты зависли, температура газов вышла за предел.","fire"); return; }
+    } else if (E.N>69){ E.phase = "run"; E.critT = 0; E.grace = 2; elog("Двигатель вышел на МАЛЫЙ ГАЗ."); }
+    flames(); audioUpdate(E.N,false); drawDials(); return;
+  }
+  if (E.phase==="cool"){
+    E.coolT += dt; const tgtN = E.coolT<3 ? 70 : 0;
+    E.N = approach(E.N, tgtN, E.coolT<3?1:1.2); E.egt = approach(E.egt, E.coolT<3?450:80, 1.5); E.oil = approach(E.oil, E.coolT<3?3:0, 1.2); E.vib = approach(E.vib, 3, .8);
+    flames(); audioUpdate(E.N,false); drawDials();
+    if (E.coolT>6){ finishRun(false); }
+    return;
+  }
+  // случайные колебания
+  E.nt -= dt; if (E.nt<=0){ E.nt = .35; E.noise = {e:gauss()*5, v:gauss()*1.2, o:gauss()*.06, h:gauss()*1.2}; }
+  if (E.stage>0 && Math.random()<dt*.03){ E.vibSpike += rnd(8,12); elog("Кратковременный рост вибрации!"); }
+  if (E.stage>0 && Math.random()<dt*.025){ E.oilSpike -= rnd(.5,.8); elog("Просадка давления масла!"); }
+  E.egtSpike *= Math.exp(-dt/1.6); E.vibSpike *= Math.exp(-dt/1.4); E.oilSpike *= Math.exp(-dt/1.4);
+  const T = targets();
+  E.N = approach(E.N, T.N, .9); E.egt = approach(E.egt, T.egt, 1.3); E.vib = approach(E.vib, T.vib, .5); E.oil = approach(E.oil, T.oil, .8); E.hyd = approach(E.hyd, T.hyd, .8);
+  E.max.egt = Math.max(E.max.egt,E.egt); E.max.vib = Math.max(E.max.vib,E.vib); E.min.oil = Math.min(E.min.oil,E.oil); E.min.hyd = Math.min(E.min.hyd,E.hyd);
+  const lv = levels(); for (const k in lv) if (lv[k]) E.warned.add(k);
+  const crit = Object.keys(lv).filter(k=>lv[k]===2), warn = Object.keys(lv).filter(k=>lv[k]===1);
+  E.grace = Math.max(0, E.grace-dt);
+  const steady = Math.abs(E.N - STG[E.stage].N) < 2.5;
+  if (!crit.length && !E.surge && steady && !E.passed[E.stage]){ E.hold += dt;
+    if (E.hold>=HOLD){ E.passed[E.stage] = true; elog(`Режим «${STG[E.stage].name}» ЗАЧТЁН.`); beep(1320,.08,.08);
+      if (E.passed.every(Boolean)) { elog("Все режимы отработаны. Завершите гонку с охлаждением."); toast("Все режимы зачтены. Нажмите «Завершить гонку».","ok"); } } }
+  if (warn.length && !crit.length) E.soak += dt; else if (!warn.length) E.soak = Math.max(0, E.soak-dt);
+  if (E.surge){ E.surgeT += dt; shake = Math.max(shake,.35); if (Math.random()<dt*3){ boom(); }
+    showAlarm(`ПОМПАЖ! Хлопки и тряска — немедленно уберите РУД (${Math.max(0,2.5-E.surgeT).toFixed(1)} с)`, true);
+    if (E.surgeT>2.5){ catastrophe("ПОМПАЖ И РАЗРУШЕНИЕ КОМПРЕССОРА","Двигатель был в помпаже, а РУД не убрали. Срыв потока, обрыв лопаток компрессора, разрушение двигателя.","blast"); return; } }
+  else if (crit.length && E.grace<=0){
+    E.critT += dt; if (Math.floor(E.t*4)%2===0) beep(980,.05,.06);
+    showAlarm(`КРИТИЧНО: ${crit.map(k=>PNAME[k]).join(", ")} — ${E.stage? "СНИЗЬТЕ РЕЖИМ" : "СТОП-КРАН"}! ${Math.max(0,CRIT_T-E.critT).toFixed(1)} с`, true);
+    if (E.critT>CRIT_T){ const k = crit[0];
+      if (k==="egt") catastrophe("ПОЖАР ДВИГАТЕЛЯ","Температура газов за турбиной превысила предел, режим не был снижен. Прогар лопаток и корпуса турбины, пожар в мотогондоле.","fire");
+      else if (k==="hyd") catastrophe("ПОЖАР: ВЫБРОС АМГ-10","Давление в гидросистеме упало ниже критического. Шланг разорвало, гидрожидкость попала на горячую часть двигателя.","fire");
+      else if (k==="vib") catastrophe("ПОМПАЖ: ОБРЫВ ЛОПАТКИ КОМПРЕССОРА","Критическая вибрация проигнорирована. Оборвалась повреждённая лопатка, двигатель ушёл в помпаж.","blast");
+      else catastrophe("РАЗРУШЕНИЕ ПОДШИПНИКА ОПОРЫ","Давление масла ниже критического, двигатель не выключили. Масляное голодание и заклинивание ротора.","blast");
+      return; }
+  } else {
+    E.critT = crit.length ? E.critT : 0;
+    if (crit.length) showAlarm(`Режим снижен — следите за стрелками (${crit.map(k=>PNAME[k]).join(", ")})`, false);
+    else if (warn.length) showAlarm(`Жёлтая зона: ${warn.map(k=>PNAME[k]).join(", ")}. При долгой выдержке растёт.`, false);
+    else $("engAlarm").hidden = true;
+  }
+  flames(); audioUpdate(E.N, E.stage===3); renderStages(); drawDials();
+}
+function showAlarm(t, crit){ const a = $("engAlarm"); a.textContent = t; a.classList.toggle("warn", !crit); a.hidden = false; }
+function flames(){
+  for (const s of ["L","R"]){ const f = W.flames[s]; const on = E && s===E.side && E.N>20; f.g.visible = on; if(!on) continue;
+    const n = E.N/100, ab = E.stage===3 && E.phase==="run";
+    f.core.material.color.set(ab?"#ff6a10":"#8a9aa8"); f.core.material.opacity = ab ? .82+Math.random()*.1 : .08+n*.12;
+    f.core.scale.set(1, ab?1.7+Math.random()*.15:.4+n*.4, 1); f.core.position.x = ab ? -2.5 : -.8;
+    f.inner.material.opacity = ab ? .85 : 0; f.inner.scale.set(1, ab?1.5:.6, 1); f.inner.position.x = ab ? -1.5 : -1;
+    f.diamonds.forEach((d,i)=>{ d.material.opacity = ab ? .55-i*.1+Math.random()*.1 : 0; });
+    f.light.intensity = ab ? 3 + Math.random() : n*.4;
+    if (E.surge && Math.random()<.2){ f.core.material.opacity = 1; f.core.scale.y = 2; }
+  }
+}
+function rudUp(){
+  if (!E || E.phase!=="run" || E.ending) return;
+  if (E.stage>=3){ toast("Форсаж — максимальный режим.",""); return; }
+  if (!E.passed[E.stage]){ toast("Сначала выдержите текущий режим: полоска под режимом должна заполниться.","warn"); return; }
+  if (E.stage===2){
+    if (E.abFail>=2){ catastrophe("ХЛОПОК В ФОРСАЖНОЙ КАМЕРЕ — ПОЖАР","Повторный розжиг при скопившемся в камере топливе: хлопок, выброс пламени, пожар мотогондолы.","fire"); return; }
+    if (Math.random() > Math.min(.98, E.k.ab/100+.15)){ E.abFail++; boom(); shake = .3;
+      elog("Розжиг форсажа не произошёл: срыв пламени, выброс несгоревшего топлива!");
+      toast(E.abFail>=2 ? "ОПАСНО! В форсажной камере скопилось топливо. Повторный розжиг вызовет хлопок. Остановите двигатель и проверьте форсунки." : "Срыв розжига форсажа. Можно попробовать ещё раз.", E.abFail>=2?"crit":"warn", 6000);
+      return; }
+    elog("Форсаж включён: створки раскрылись, ровный факел.");
+  } else elog(`РУД на режим «${STG[E.stage+1].name}».`);
+  E.stage++; E.hold = 0; E.soak = 0;
+  if (Math.random()<.35){ E.egtSpike = rnd(45,75); elog("Заброс температуры газов при приёмистости!"); }
+  if (E.k.comp<50 && Math.random() < (50-E.k.comp)/50*.7){ E.surge = true; E.surgeT = 0; boom(); elog("ПОМПАЖ!"); }
+  renderStages();
+}
+function rudDown(){
+  if (!E || E.phase!=="run" || E.ending || E.stage===0) return;
+  E.stage--; E.hold = E.passed[E.stage] ? HOLD : 0; E.soak = 0; E.egtSpike = E.vibSpike = E.oilSpike = 0; E.grace = CRIT_T; E.critT = 0;
+  if (E.surge){ E.surge = false; elog("РУД убран — двигатель вышел из помпажа."); } else elog(`Режим снижен до «${STG[E.stage].name}».`);
+  renderStages();
+}
+function techReport(){
+  const k = E.k, n = [];
+  if (k.comp<55) n.push("на входе металлический звон, будто что-то задевает");
+  if (k.turb<55) n.push("из сопла летят искры, на срезе окалина");
+  if (k.reg<55) n.push("обороты «гуляют», двигатель то подхватывает, то проседает");
+  if (k.oilp<55||k.oilf<45) n.push("из дренажа капает масло, пахнет горячим маслом");
+  if (k.noz<55) n.push("одна створка сопла отстаёт");
+  if (k.ab<55) n.push("на прошлых гонках форсаж разжигался с хлопками");
+  if (Math.min(k.htank,k.hoses)<55||k.hfilt<50||k.stab<55) n.push("под самолётом подтёки красной жидкости АМГ-10");
+  toast("Техник: " + (n.length ? n.join("; ") : "работает ровно, посторонних звуков нет, течей не вижу") + ".", n.length?"warn":"ok", 7000);
+}
+function engineStop(){
+  if (!E || E.ending) return;
+  if (E.phase==="start"){ elog("Запуск прекращён, выполнена холодная прокрутка."); if (E.k.reg<35){ slot("reg_"+E.side).suspect = slot("reg_"+E.side).known<2;
+      toast("Причина зависания — топливная автоматика. Проверьте насос-регулятор НР-59А.","warn",6000); } abortRun(); return; }
+  if (E.passed.every(Boolean)){ if (E.stage>=2) S.hot = true; finishRun(E.stage>=2); return; }
+  abortRun();
+}
+function engineFinish(){ if (!E || E.ending || !E.passed.every(Boolean)) return; E.phase = "cool"; E.coolT = 0; E.stage = 0; elog("РУД на МАЛЫЙ ГАЗ, охлаждение 3 минуты, затем останов."); $("engAlarm").hidden = true; }
+function finishRun(hot){
+  E.ending = true; const side = E.side; S.tests["engine_"+side] = true; S.tests.engine_any = true; save();
+  audioStop(); $("engAlarm").hidden = true;
+  modal(`Протокол гонки: двигатель №${side==="L"?1:2} годен`, `<div class="act">
+    <div>Макс. температура газов: ${E.max.egt.toFixed(0)} °C (предел ${LIM.egtC})</div><div>Макс. вибрация: ${E.max.vib.toFixed(1)} мм/с (предел ${LIM.vibC})</div>
+    <div>Мин. давление масла: ${E.min.oil.toFixed(2)} кгс/см²</div><div>Мин. давление в гидросистеме: ${E.min.hyd.toFixed(0)} кгс/см²</div></div>
+    ${hot?`<p class="defect" style="margin:0">Двигатель выключен стоп-краном с высокого режима без охлаждения — нарушение РЛЭ (термоудар). Будет учтено при оплате.</p>`:`<p class="note" style="margin:0">Двигатель охлаждён на малом газе и выключен. Гидросистема и тормоза проверены под нагрузкой.</p>`}`,
+    {narrow:true, footer:`<button class="mini primary" id="pOk">В цех</button>`, onClose:endEngineRun});
+  $("pOk").onclick = closeModal;
+}
+function abortRun(){
+  E.ending = true; audioStop(); $("engAlarm").hidden = true;
+  const hints = {egt:"температура газов → лопатки турбины, НР-59А, створки сопла", vib:"вибрация → лопатки компрессора", oil:"давление масла → маслонасос, маслофильтр", hyd:"гидросистема → гидробак, шланги, фильтр, приводы стабилизатора"};
+  const list = [...E.warned].map(k=>hints[k]); if (E.abFail) list.push("срыв розжига форсажа → форсунки форсажной камеры");
+  modal("Гонка прекращена", `<p style="margin:0">Двигатель выключен, не все режимы зачтены. Самолёт отбуксирован в цех.</p>${list.length?`<div><div class="eyebrow" style="margin-bottom:6px">Замечания — проверьте узлы</div><ul>${list.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}`,
+    {narrow:true, footer:`<button class="mini primary" id="pOk">В цех</button>`, onClose:endEngineRun});
+  $("pOk").onclick = closeModal;
+}
+function catastrophe(title, text, kind){
+  if (!E) return; E.ending = true;
+  const z = E.side==="L"?-1.05:1.05;
+  W.fire.visible = true; W.fire.children.forEach((p,i)=>{ p.userData.x = -3 - Math.random()*4; p.userData.y = 1.3; p.userData.z = z + (Math.random()-.5)*.8; });
+  shake = 1.2; boom(); setTimeout(boom, 400); showAlarm(title, true);
+  setTimeout(()=>{ audioStop();
+    const m = mission(), fine = Math.min(P.money, Math.round(m.reward*.2));
+    P.money -= fine; P.stats.failures++; S = null; selected = null; save();
+    modal("НАРЯД ПРОВАЛЕН", `<h3 style="color:var(--crit);font-size:20px">${esc(title)}</h3><p style="margin:0;line-height:1.5">${esc(text)}</p>
+      <p style="margin:0;line-height:1.5">Пожарный расчёт ликвидировал возгорание, пострадавших нет. Комиссия установила: оператор проигнорировал критические показания приборов.</p>
+      <p style="margin:0">Удержано из подотчётных средств: <b class="num">${fmt(fine)}</b>. Наряд можно взять повторно.</p>`,
+      {narrow:true, footer:`<button class="mini primary" id="pOk">Вернуться в цех</button>`, onClose:endEngineRun});
+    $("pOk").onclick = closeModal;
+  }, 2600);
+}
+function endEngineRun(){
+  engineActive = false; E = null; W.fire.visible = false; shake = 0;
+  for (const s of ["L","R"]) W.flames[s].g.visible = false;
+  setWorld(false); syncPlane(); uiMode("hangar"); camTo("all"); afterChange();
+}
+$("rudUp").onclick = rudUp; $("rudDown").onclick = rudDown; $("engStop").onclick = engineStop; $("engFinish").onclick = engineFinish;
+$("engReport").onclick = ()=>E && techReport();
+$("engSound").onclick = ()=>{ AU.on = !AU.on; $("engSound").textContent = "Звук: "+(AU.on?"вкл":"выкл"); if (!AU.on) audioStop(); else if (engineActive && !E.ending) audioStart(); };
+/* ═════════════════════════ НАСТРОЙКА РЛС «ТОПАЗ» ═════════════════════════ */
+let RD = null;
+const RCMD = {"ПИТАНИЕ":["ПИТАНИЕ","ПИТ","POWER","PWR"],"ПРОГРЕВ":["ПРОГРЕВ","ПРОГ","WARM"],"ВСК":["ВСК","САМОКОНТРОЛЬ","BIT"],
+  "ЭКВИВАЛЕНТ":["ЭКВИВАЛЕНТ","ЭКВ","НАГРУЗКА","LOAD"],"ИЗЛУЧЕНИЕ":["ИЗЛУЧЕНИЕ","ИЗЛ","TX"],"СТАТУС":["СТАТУС","STATUS"],"СПРАВКА":["СПРАВКА","?","HELP"]};
+function radarStart(){
+  const miss = RADAR.filter(id=>!slot(id).on);
+  if (miss.length){ modal("Настройка невозможна", `<p style="margin:0">Не установлены узлы: ${miss.map(id=>"«"+esc(label(id))+"»").join(", ")}.</p>`, {narrow:true}); return; }
+  addHours(2.5, "Настройка и юстировка РЛС «Топаз»"); save();
+  selectPart(null); camTo("nose");
+  RD = {stage:1, st:{power:false,warm:false,bit:false,load:false}, err:0, hf:effCond("radar_hf"), drv:effCond("radar_drive")};
+  uiMode("radar"); renderR1();
+}
+function rline(t, cls=""){ const d = document.createElement("div"); if (cls) d.className = cls; d.textContent = t; $("term").appendChild(d); $("term").scrollTop = 1e6; }
+function renderR1(){
+  $("crt").innerHTML = `<h2>КПА-Н019МЭ · ЭТАП 1 из 3 · ВКЛЮЧЕНИЕ И САМОКОНТРОЛЬ</h2>
+  <div class="card-tk">ТЕХНОЛОГИЧЕСКАЯ КАРТА ТК-Н019МЭ-12 «Проверка РЛС после ремонта»<br>
+  1. Подать электропитание на изделие от наземного источника.<br>2. Выполнить прогрев передатчика.<br>3. Выполнить встроенный самоконтроль (ВСК).<br>
+  4. ВНИМАНИЕ! Излучение в помещении цеха без подключённого эквивалента антенны ЗАПРЕЩЕНО.<br>5. Включить излучение и перейти к калибровке частотных литер.</div>
+  <div class="term" id="term"></div>
+  <form class="row" id="rform"><span>КПА&gt;</span><input type="text" id="rcmd" autocomplete="off" spellcheck="false" aria-label="Команда КПА"><button type="submit">Ввод</button></form>
+  <div class="row"><button id="rhelp">СПРАВКА</button><button id="rstat">СТАТУС</button><span style="flex:1"></span><button id="rexit">Прервать настройку</button></div>`;
+  rline("КПА-Н019МЭ готова. Подключены жгуты к разъёмам РЛС, питание от наземного агрегата.", "dim");
+  rline("Введите команду. Список команд — СПРАВКА.", "dim");
+  $("rform").onsubmit = e=>{ e.preventDefault(); const v = $("rcmd").value; $("rcmd").value = ""; radarCmd(v); };
+  $("rhelp").onclick = ()=>radarCmd("СПРАВКА"); $("rstat").onclick = ()=>radarCmd("СТАТУС"); $("rexit").onclick = ()=>radarEnd(false);
+  setTimeout(()=>$("rcmd") && $("rcmd").focus(), 50);
+}
+function radarCmd(raw){
+  const t = raw.trim().toUpperCase(); if (!t) return;
+  rline("КПА> "+t, "inv");
+  const key = Object.keys(RCMD).find(k=>RCMD[k].includes(t)), st = RD.st;
+  const err = m=>{ RD.err++; rline(`ОТКАЗ: ${m}  [ошибок оператора ${RD.err}/5]`, "err");
+    if (RD.err>=5){ rline("КПА ЗАБЛОКИРОВАНА ПО ЧИСЛУ ОШИБОК ОПЕРАТОРА. Процедура прервана, время потрачено.","err"); setTimeout(()=>radarEnd(false,"КПА заблокирована по числу ошибок. Повторите настройку."),1800); } };
+  if (!key) return err("неизвестная команда — введите СПРАВКА");
+  if (key==="СПРАВКА"){ [["ПИТАНИЕ","подать электропитание на изделие"],["ПРОГРЕВ","прогрев передатчика"],["ВСК","встроенный самоконтроль"],["ЭКВИВАЛЕНТ","подключить эквивалент антенны"],["ИЗЛУЧЕНИЕ","включить излучение"],["СТАТУС","состояние изделия"]].forEach(([a,b])=>rline(`  ${a.padEnd(11)} — ${b}`)); return; }
+  if (key==="СТАТУС"){ rline(`  Питание: ${st.power?"ДА":"нет"}   Прогрев: ${st.warm?"ДА":"нет"}   ВСК: ${st.bit?"НОРМА":"нет"}   Эквивалент: ${st.load?"ДА":"нет"}`); return; }
+  if (key==="ПИТАНИЕ"){ if (st.power) return rline("Питание уже подано.","dim"); st.power = true; return rline("Подано ~115 В 400 Гц и =27 В. Токи потребления в норме."); }
+  if (!st.power) return err("нет питания изделия");
+  if (key==="ПРОГРЕВ"){ if (st.warm) return rline("Передатчик уже прогрет.","dim"); rline("Прогрев передатчика… ■■■■■■■■■■ готов."); st.warm = true; return; }
+  if (key==="ЭКВИВАЛЕНТ"){ st.load = true; return rline("Эквивалент антенны подключён к волноводному тракту."); }
+  if (key==="ВСК"){
+    rline("Встроенный самоконтроль:");
+    const checks = [["suo_harness","обмен по МКИО с БЦВМ СУО","НЕТ ОБМЕНА ПО МКИО — проверить жгут СУО"],["radar_hf","ВЧ-тракт передатчика","ОТКАЗ ВЧ-БЛОКА: мощность ниже нормы"],
+      ["radar_drive","привод антенны","ОТКАЗ ПРИВОДА: превышение тока, рассогласование"],["radome","КСВН антенно-фидерного тракта","КСВН ВЫШЕ НОРМЫ — осмотреть обтекатель"]];
+    const bad = [];
+    for (const [id,n,f] of checks){ const ok = effCond(id)>=50; rline(`  ${n.padEnd(32,".")} ${ok?"НОРМА":"ОТКАЗ"}`, ok?"":"err"); if(!ok){ bad.push(f); if (slot(id).known<2) slot(id).suspect = true; } }
+    if (bad.length){ rline("ВСК: ИЗДЕЛИЕ НЕИСПРАВНО","err"); bad.forEach(b=>rline("  код отказа: "+b,"err")); rline("Настройка невозможна. Найдите и устраните неисправность.","dim");
+      setTimeout(()=>radarEnd(false, "ВСК выявил отказ: "+bad.join("; ")+"."), 2600); return; }
+    st.bit = true; return rline("ВСК: ИЗДЕЛИЕ ИСПРАВНО");
+  }
+  if (key==="ИЗЛУЧЕНИЕ"){
+    if (!st.warm) return err("блокировка — передатчик не прогрет");
+    if (!st.bit) return err("блокировка — не выполнен встроенный самоконтроль");
+    if (!st.load){ const fine = Math.min(500, P.money); P.money -= fine;
+      rline("!!! ИЗЛУЧЕНИЕ В ПОМЕЩЕНИЕ ЦЕХА БЕЗ ЭКВИВАЛЕНТА АНТЕННЫ !!!","err");
+      rline(`Грубое нарушение техники безопасности: персонал подвергся СВЧ-облучению. Начальник цеха остановил работы. Штраф ${fmt(fine)}`,"err");
+      setTimeout(()=>radarEnd(false, `Нарушение ТБ: излучение без эквивалента антенны. Штраф ${fmt(fine)}`), 2600); return; }
+    rline("Излучение включено. Передатчик работает на эквивалент нагрузки."); setTimeout(renderR2, 900);
+  }
+}
+function renderR2(){
+  RD.stage = 2; RD.t = 75; RD.inbal = 0;
+  RD.base = [0,1,2].map(()=> (Math.random()<.5?-1:1)*rnd(3,9)); RD.drift = [0,0,0]; RD.knob = [0,0,0];
+  RD.sigma = .1 + Math.max(0,95-RD.hf)/100*.6;
+  $("crt").innerHTML = `<h2>ЭТАП 2 из 3 · КАЛИБРОВКА ЧАСТОТНЫХ ЛИТЕР</h2>
+  <div class="card-tk">Сведите отклонение Δf всех трёх литер в допуск ±0,5 МГц (зелёная полоса) и удержите баланс 3 секунды. Ручка литеры сдвигает соседние литеры на 20 % в ту же сторону. Тепловой дрейф передатчика постоянно сбивает настройку.</div>
+  <div class="lits">${[0,1,2].map(i=>`<div class="lit"><b>ЛИТЕРА ${i+1}</b><canvas id="lc${i}" width="160" height="300"></canvas><span class="num" id="lv${i}">Δf = 0.00</span>
+    <input type="range" id="lk${i}" min="-15" max="15" step="0.05" value="0" aria-label="Подстройка литеры ${i+1}"></div>`).join("")}</div>
+  <div class="row"><span id="rbal">Баланс: 0.0 / 3.0 с</span><span style="flex:1"></span><span id="rtime" class="num">75 с</span><button id="rexit">Прервать</button></div>`;
+  [0,1,2].forEach(i=>$("lk"+i).oninput = e=>{ RD.knob[i] = +e.target.value; });
+  $("rexit").onclick = ()=>radarEnd(false);
+}
+function devs(){ const k = RD.knob; return [0,1,2].map(i=> RD.base[i] + RD.drift[i] + k[i] + .2*((k[i-1]||0)+(k[i+1]||0))); }
+function drawLit(cv, d){
+  const g = cv.getContext("2d"), w = cv.width, h = cv.height, y = v=> h/2 - clamp(v,-10,10)/10*(h/2-10);
+  g.clearRect(0,0,w,h); g.fillStyle = "rgba(125,255,168,.18)"; g.fillRect(10, y(.5), w-20, y(-.5)-y(.5));
+  g.strokeStyle = "#2f7a4c"; g.lineWidth = 1; for (let v=-10;v<=10;v+=2){ g.beginPath(); g.moveTo(w/2-14,y(v)); g.lineTo(w/2+14,y(v)); g.stroke(); }
+  g.beginPath(); g.moveTo(w/2,6); g.lineTo(w/2,h-6); g.stroke();
+  const ok = Math.abs(d)<=.5; g.fillStyle = ok ? "#7dffa8" : Math.abs(d)<3 ? "#ffd27a" : "#ff8a7a";
+  g.fillRect(18, y(d)-4, w-36, 8);
+}
+function radarTick(dt){
+  if (!RD) return;
+  if (RD.stage===2){
+    RD.t -= dt;
+    for (let i=0;i<3;i++) RD.drift[i] += gauss()*RD.sigma*Math.sqrt(dt)*1.4;
+    const d = devs();
+    d.forEach((v,i)=>{ drawLit($("lc"+i), v); $("lv"+i).textContent = `Δf = ${v>=0?"+":""}${v.toFixed(2)} МГц`; });
+    if (d.every(v=>Math.abs(v)<=.5)) RD.inbal += dt; else RD.inbal = 0;
+    $("rbal").textContent = `Баланс: ${RD.inbal.toFixed(1)} / 3.0 с`; $("rtime").textContent = Math.max(0,RD.t).toFixed(0)+" с";
+    if (RD.inbal>=3){ RD.stage = 2.5; setTimeout(renderR3, 700); $("rbal").textContent = "Баланс частот удержан. Калибровка завершена."; }
+    else if (RD.t<=0){ RD.stage = 0; radarEnd(false, "Время калибровки истекло, передатчик перегрелся." + (RD.hf<70?" Сильный дрейф частоты — признак износа ВЧ-блока.":"")); }
+  }
+  if (RD && RD.stage===4){ RD.sweep += dt*2.2; drawScope(); if (RD.sweep>Math.PI*2.2) radarSuccess(); }
+}
+function renderR3(){
+  RD.stage = 3; RD.az = (Math.random()<.5?-1:1)*rnd(1,3.5); RD.el = (Math.random()<.5?-1:1)*rnd(.5,2.5); RD.moves = 0; RD.fine = false;
+  RD.back = .04 + Math.max(0,95-RD.drv)/100*.5;
+  $("crt").innerHTML = `<h2>ЭТАП 3 из 3 · ЮСТИРОВКА АНТЕННЫ (УГЛЫ ОБЗОРА)</h2>
+  <div class="card-tk">Антенна наведена на контрольный излучатель юстировочного стенда. Совместите электрическую ось антенны со строительной осью самолёта: допуск ±0,10° по азимуту и углу места. Затем запишите коэффициенты в ПЗУ командой ЗАПИСЬ. Изношенный привод отрабатывает поправки с люфтом.</div>
+  <div class="bore"><canvas id="bc" width="400" height="400"></canvas>
+  <div style="display:flex;flex-direction:column;gap:10px;align-items:center">
+    <div class="pad"><span></span><button data-d="0,1" aria-label="Угол места вверх">▲</button><span></span><button data-d="-1,0" aria-label="Азимут влево">◄</button><button id="bstep" title="Шаг">0.5°</button><button data-d="1,0" aria-label="Азимут вправо">►</button><span></span><button data-d="0,-1" aria-label="Угол места вниз">▼</button><span></span></div>
+    <span class="num" id="berr"></span><span class="num" id="bmov"></span>
+    <button id="bsave" disabled>ЗАПИСЬ в ПЗУ</button><button id="rexit">Прервать</button></div></div>`;
+  document.querySelectorAll("[data-d]").forEach(b=>b.onclick = ()=>{ const [x,y] = b.dataset.d.split(",").map(Number); boreMove(x,y); });
+  $("bstep").onclick = ()=>{ RD.fine = !RD.fine; $("bstep").textContent = RD.fine?"0.1°":"0.5°"; };
+  $("bsave").onclick = ()=>{ RD.stage = 4; RD.sweep = 0; $("crt").innerHTML = `<h2>КОНТРОЛЬ СЕКТОРА ОБЗОРА</h2><canvas id="scope" width="640" height="340" style="width:100%;max-width:640px;align-self:center"></canvas><div>Коэффициенты юстировки записаны в ПЗУ. Антенна проходит сектор обзора…</div>`; };
+  $("rexit").onclick = ()=>radarEnd(false);
+  drawBore();
+}
+function boreMove(x,y){
+  if (!RD || RD.stage!==3) return;
+  const step = RD.fine ? .1 : .5, k = 1 + rnd(-RD.back, RD.back);
+  RD.az += x*step*k; RD.el += y*step*k; RD.moves++;
+  if (RD.moves>=30 && !(Math.abs(RD.az)<=.1 && Math.abs(RD.el)<=.1)){ radarEnd(false, "Лимит шагов исчерпан, юстировка не выполнена." + (RD.drv<70?" Привод не отрабатывает малые поправки — вероятен износ привода антенны.":"")); return; }
+  drawBore();
+}
+function drawBore(){
+  const cv = $("bc"), g = cv.getContext("2d"), w = cv.width, c = w/2, sc = (w/2-20)/4;
+  g.fillStyle = "#031009"; g.fillRect(0,0,w,w); g.strokeStyle = "#1f5a37"; g.lineWidth = 1;
+  for (let v=-4;v<=4;v++){ g.beginPath(); g.moveTo(c+v*sc,10); g.lineTo(c+v*sc,w-10); g.stroke(); g.beginPath(); g.moveTo(10,c+v*sc); g.lineTo(w-10,c+v*sc); g.stroke(); }
+  g.strokeStyle = "#7dffa8"; g.lineWidth = 2; g.strokeRect(c-.1*sc, c-.1*sc, .2*sc, .2*sc);
+  g.beginPath(); g.arc(c,c,6,0,7); g.stroke();
+  const x = c + clamp(RD.az,-4,4)*sc, y = c - clamp(RD.el,-4,4)*sc, ok = Math.abs(RD.az)<=.1 && Math.abs(RD.el)<=.1;
+  g.fillStyle = ok ? "#7dffa8" : "#ffd27a"; g.beginPath(); g.arc(x,y,9,0,7); g.fill();
+  g.strokeStyle = g.fillStyle; g.beginPath(); g.moveTo(x-18,y); g.lineTo(x+18,y); g.moveTo(x,y-18); g.lineTo(x,y+18); g.stroke();
+  $("berr").textContent = `АЗ ${RD.az>=0?"+":""}${RD.az.toFixed(2)}°  УМ ${RD.el>=0?"+":""}${RD.el.toFixed(2)}°`;
+  $("bmov").textContent = `шаг ${RD.moves} / 30`;
+  $("bsave").disabled = !ok;
+}
+function drawScope(){
+  const cv = $("scope"); if (!cv) return; const g = cv.getContext("2d"), w = cv.width, h = cv.height, cx = w/2, cy = h-14, R = h-30;
+  g.fillStyle = "rgba(3,16,9,.25)"; g.fillRect(0,0,w,h);
+  g.strokeStyle = "#1f5a37"; g.lineWidth = 1;
+  for (let r=1;r<=4;r++){ g.beginPath(); g.arc(cx,cy,R*r/4,Math.PI*1.17,Math.PI*1.83); g.stroke(); }
+  const a = Math.PI*1.17 + (Math.PI*.66)*(.5+.5*Math.sin(RD.sweep));
+  g.strokeStyle = "#7dffa8"; g.lineWidth = 3; g.beginPath(); g.moveTo(cx,cy); g.lineTo(cx+Math.cos(a)*R, cy+Math.sin(a)*R); g.stroke();
+  g.fillStyle = "#b6ffd0"; g.beginPath(); g.arc(cx, cy-R*.62, 6, 0, 7); g.fill();
+}
+function radarSuccess(){
+  RD = null; S.tests.radar = true; P.stats.radar++; afterChange();
+  $("crt").innerHTML = `<h2>ПРОТОКОЛ НАСТРОЙКИ РЛС: ИЗДЕЛИЕ ГОДНО</h2>
+  <div>Частотные литеры сбалансированы, электрическая ось антенны совмещена со строительной осью самолёта, коэффициенты записаны в ПЗУ, сектор обзора отработан без заеданий. Излучение выключено, эквивалент отстыкован, питание снято.</div>
+  <div class="row"><button id="rexit">В цех</button></div>`;
+  $("rexit").onclick = ()=>radarEnd(true);
+}
+function radarEnd(ok, why){
+  RD = null; uiMode("hangar"); camTo("all"); afterChange();
+  if (!ok && why) toast(why, "warn", 7000); else if (!ok) toast("Настройка РЛС прервана.");
+  else toast("РЛС «Топаз» настроена. Протокол подписан.","ok");
+}
+
+/* ═════════════════════════ ОТК И ОПЛАТА ═════════════════════════ */
+function otk(){
+  const miss = SID.filter(id=>!slot(id).on);
+  if (miss.length){ modal("ОТК: самолёт не укомплектован", `<p style="margin:0">Не установлены узлы:</p><ul>${miss.map(id=>`<li>${esc(label(id))}</li>`).join("")}</ul>`, {narrow:true}); return; }
+  const np = requiredTests().filter(t=>!S.tests[t]);
+  if (np.length){ modal("ОТК: нет протоколов испытаний", `<p style="margin:0">Самолёт не принимается без протоколов:</p><ul>${np.map(t=>`<li>${esc(TEST_NAME[t])}</li>`).join("")}</ul>`, {narrow:true}); return; }
+  const bad = SID.filter(id=>slot(id).defect || slot(id).cond<OTK_MIN);
+  if (bad.length){
+    S.rework++; P.stats.returns++; addHours(1, "Предъявление ОТК: возврат на доработку");
+    for (const id of bad){ slot(id).known = 2; slot(id).claimed = null; markFound(id,"otk"); }
+    afterChange();
+    const body = modal("ВОЗВРАТ НА ДОРАБОТКУ", `<p style="margin:0">Контролёр ОТК проверил формуляры, пломбы и выборочно узлы. Выявлены неустранённые дефекты:</p>
+      <div class="tblwrap"><table class="tbl"><tbody>${bad.map(id=>`<tr class="click" data-id="${id}"><td>${esc(label(id))}</td><td class="defect">${esc(slot(id).defect||"износ сверх допуска")}</td><td class="r num">${slot(id).cond}%</td></tr>`).join("")}</tbody></table></div>
+      <p class="note" style="margin:0">Каждый возврат снижает оплату наряда на 10%. Устраните дефекты и предъявите самолёт снова.</p>`, {narrow:true});
+    body.querySelectorAll("tr.click").forEach(tr=>tr.onclick = ()=>{ closeModal(); selectPart(tr.dataset.id); focusOn(tr.dataset.id); });
+    return;
+  }
+  accept();
+}
+function accept(){
+  const m = mission(), base = m.reward, lines = [["Оплата по наряду", base]];
+  const conds = Object.keys(S.reported).map(id=>slot(id).cond), q = conds.reduce((a,b)=>a+b,0)/Math.max(1,conds.length);
+  if (q>=90) lines.push(["Премия за качество (ресурс узлов по наряду ≥ 90%)", Math.round(base*.1)]);
+  else if (q<65) lines.push(["Снижение за изношенные узлы (ресурс по наряду < 65%)", -Math.round(base*.05)]);
+  if (S.hours<=S.norm) lines.push([`Премия за работу в норматив (${S.hours.toFixed(1)} из ${S.norm.toFixed(1)} ч)`, Math.round(base*.1)]);
+  else if (S.hours>S.norm*1.5) lines.push([`Удержание за превышение норматива (${S.hours.toFixed(1)} из ${S.norm.toFixed(1)} ч)`, -Math.round(base*.1)]);
+  let found = 0;
+  for (const [id,h] of Object.entries(S.hidden)){ const pr = PT[ST[id]].price;
+    if (h.status==="found"){ found++; lines.push([`Скрытый дефект найден вами: ${label(id)}`, Math.round(pr*1.3)]); }
+    else if (h.status==="otk") lines.push([`Скрытый дефект найден ОТК: ${label(id)}`, Math.round(pr*.8)]); }
+  if (S.rework) lines.push([`Возвраты ОТК на доработку ×${Math.min(S.rework,3)}`, -Math.round(base*.1*Math.min(S.rework,3))]);
+  if (S.hot) lines.push(["Нарушение РЛЭ: выключение двигателя без охлаждения", -Math.round(base*.05)]);
+  const total = Math.max(0, lines.reduce((a,[,v])=>a+v,0));
+  const xp = Math.max(10, (S.replay ? Math.floor(m.xp/2) : m.xp) + 15*found - 10*S.rework);
+  const oldR = rankIdx(), bort = S.bort, hours = S.hours, norm = S.norm;
+  P.money += total; P.stats.earned += total; P.xp += xp; P.completed[m.id] = (P.completed[m.id]||0)+1;
+  S = null; selected = null; save();
+  const newR = rankIdx(), fin = m.final && !P.finalDone; if (fin) P.finalDone = true; save();
+  modal(`Акт № ${rint(100,999)}/558 приёмки из ремонта`, `<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
+      <div class="stamp">558 АРЗ · ОТК<br>ПРИНЯТО<br><small style="font-size:11px">ГОДЕН К ПОЛЁТАМ</small></div>
+      <dl class="kv" style="flex:1;min-width:220px"><dt>Изделие</dt><dd>МиГ-29БМ № ${bort}</dd><dt>Наряд</dt><dd>${esc(m.title)}</dd><dt>Исполнитель</dt><dd>${esc(P.name)}</dd><dt>Трудоёмкость</dt><dd class="num">${hours.toFixed(1)} из ${norm.toFixed(1)} нормо-ч</dd></dl></div>
+    <div class="tblwrap"><table class="tbl"><tbody>${lines.map(([t,v])=>`<tr><td>${esc(t)}</td><td class="r num" style="color:${v<0?"var(--crit)":"var(--ok)"};white-space:nowrap">${v<0?"−":"+"}${fmt(Math.abs(v))}</td></tr>`).join("")}
+      <tr><td><b>Итого к зачислению</b></td><td class="r num"><b>${fmt(total)}</b></td></tr><tr><td>Опыт</td><td class="r num">+${xp}</td></tr></tbody></table></div>
+    ${newR>oldR?`<div class="toast star" style="animation:none;max-width:none"><b>Повышение в должности!</b> Приказом начальника завода вы назначены: «${esc(rankName())}». Скидка в снабжении ${Math.round(discount()*100)}%, работы быстрее на ${Math.round((1-speed())*100)}%, открыты новые наряды.</div>`:""}
+    ${fin?`<div class="toast ok" style="animation:none;max-width:none"><b>3 июля, Минск.</b> Над площадью проходят истребители ВВС и войск ПВО. МиГ-29БМ № ${bort}, который вы вернули в строй, идёт точно на своём месте. Начальник завода: «${esc(P.name)}, вы прошли путь от ученика слесаря-сборщика до главного инженера. Спасибо за службу!»</div>`:""}
+    ${P.inv.some(i=>i.removed)?`<p class="note" style="margin:0">Снятые с самолёта детали лежат на складе — их можно сдать в ремфонд.</p>`:""}`,
+    {footer:`<button class="mini primary" id="aOk">Следующий наряд</button>`, onClose:()=>{ syncPlane(); afterChange(); }});
+  $("aOk").onclick = ()=>{ closeModal(); openBoard(); };
+  syncPlane(); afterChange();
+}
+
+/* ═════════════════════════ ЛИЧНОЕ ДЕЛО, СПРАВКА ═════════════════════════ */
+function openProfile(){
+  const r = rankIdx(), s = P.stats;
+  const body = modal("Личное дело авиатехника", `<dl class="kv"><dt>Фамилия</dt><dd>${esc(P.name)}</dd><dt>Должность</dt><dd>${esc(rankName())}</dd><dt>Опыт</dt><dd class="num">${P.xp}${RANKS[r+1]?` из ${RANKS[r+1][1]}`:""}</dd>
+    <dt>Счёт</dt><dd class="num">${fmt(P.money)}</dd><dt>Преимущества</dt><dd>скидка в снабжении ${Math.round(discount()*100)}%, работы быстрее на ${Math.round((1-speed())*100)}%, шанс заметить скрытый дефект ${30+10*r}%</dd></dl>
+    <div class="tblwrap"><table class="tbl"><tbody>${RANKS.map(([n,x],i)=>`<tr><td style="color:${i===r?"var(--accent)":i<r?"var(--fg)":"var(--muted)"}">${i===r?"► ":""}${esc(n)}</td><td class="r num sub">от ${x} опыта</td></tr>`).join("")}</tbody></table></div>
+    <div class="order grid">${[["Выполнено нарядов",Object.values(P.completed).reduce((a,b)=>a+b,0)],["Провалено",s.failures],["Скрытых дефектов найдено",s.hidden],["Гонок двигателей",s.runs],["Настроек РЛС",s.radar],["Возвратов ОТК",s.returns],["Заработано",fmt(s.earned)],["Потрачено на снабжение",fmt(s.spent)]].map(([a,b])=>`<div><span class="eyebrow">${a}</span><b class="num">${b}</b></div>`).join("")}</div>`,
+    {footer:`${P.money<3000?`<button class="mini" id="pOver">Сверхурочная смена (+500–900 руб.)</button>`:""}<button class="mini" id="pMenu">Главное меню</button><button class="mini primary" id="pClose">Закрыть</button>`});
+  body.parentElement.querySelector("#pClose").onclick = closeModal;
+  body.parentElement.querySelector("#pMenu").onclick = ()=>{ closeModal(); showMenu(); };
+  const ov = body.parentElement.querySelector("#pOver");
+  if (ov) ov.onclick = ()=>{ const pay = rint(5,9)*100; P.money += pay; afterChange(); closeModal();
+    toast(pick(["Помогли агрегатному цеху с переборкой колёс.","Отработали смену на мойке и консервации авиатехники.","Разбирали поступивший ЗИП на центральном складе.","Дежурили в пожарном расчёте на газовочной площадке."])+` Начислено ${fmt(pay)}`,"ok",5500); };
+}
+function openHelp(){
+  modal("Справка авиатехника", `<div class="order" style="display:flex;flex-direction:column;gap:14px">
+  <div><h3 style="font-size:15px;margin-bottom:6px">Управление</h3><ul><li>Левая кнопка мыши — выбрать деталь; тянуть — вращать камеру; колесо — масштаб; правая кнопка или Shift — сдвиг; двойной щелчок — приблизить к детали.</li>
+    <li>На телефоне: касание — выбор, один палец — вращение, два пальца — масштаб.</li>
+    <li>Клавиши: N наряды, Z задание, I режим осмотра, V ведомость, M снабжение, B склад, G гонка, R РЛС, O сдать ОТК, Esc — закрыть окно.</li></ul></div>
+  <div><h3 style="font-size:15px;margin-bottom:6px">Порядок работы</h3><ul><li>Возьмите наряд → осмотрите самолёт → проведите дефектовку узлов → закажите детали → снимите неисправные и установите исправные → гонка двигателей и/или настройка РЛС → сдайте ОТК.</li>
+    <li>Режим осмотра (I) делает обшивку прозрачной и подсвечивает узлы: зелёный — исправен, оранжевый — износ или подозрение, красный — неисправен, синий — не проверен.</li>
+    <li>Многие узлы закрыты другими: ВЧ-блок и привод антенны — обтекателем, лопатки, НР-59А и маслоагрегаты — капотами, форсунки — створками сопла, тормоза и стойка — колесом. Снимайте снаружи внутрь, собирайте изнутри наружу.</li>
+    <li>Скрытые дефекты не указаны в наряде. Найдёте сами — премия 130% цены детали, найдёт ОТК — 80% и возврат на доработку.</li></ul></div>
+  <div><h3 style="font-size:15px;margin-bottom:6px">Снабжение</h3><ul><li>Новая деталь — ресурс 100%. Б/У с донора — около 45% цены, ресурс 55–82%, иногда скрытый брак (входной контроль на складе выявит его, деньги вернут).</li>
+    <li>Ремкомплект чинит узел на месте, если его ресурс не ниже допустимого. Фильтры, уплотнения и пиросредства — только новые.</li></ul></div>
+  <div><h3 style="font-size:15px;margin-bottom:6px">Гонка РД-33</h3><ul><li>МАЛЫЙ ГАЗ → НОМИНАЛ → МАКСИМАЛ → ФОРСАЖ, каждый режим выдержать ${HOLD} с.</li>
+    <li>Пределы: Тг ${LIM.egtW}/${LIM.egtC} °C, вибрация ${LIM.vibW}/${LIM.vibC} мм/с, давление масла 2,6/2,0 (на МГ 2,0/1,4) кгс/см², гидросистема ${LIM.hydW}/${LIM.hydC} кгс/см².</li>
+    <li>Красная зона дольше ${CRIT_T} с без снижения режима — пожар или разрушение двигателя. При помпаже сразу убирайте РУД. Два срыва розжига форсажа — остановитесь: третья попытка вызовет хлопок.</li></ul></div>
+  <div><h3 style="font-size:15px;margin-bottom:6px">Настройка РЛС «Топаз»</h3><ul><li>Команды КПА: ПИТАНИЕ, ПРОГРЕВ, ВСК, ЭКВИВАЛЕНТ, ИЗЛУЧЕНИЕ. Излучать в цеху без эквивалента антенны нельзя.</li>
+    <li>Литеры: сведите три отклонения в зелёную полосу и удержите 3 с. Юстировка: наведите метку в центр (±0,10°) и нажмите ЗАПИСЬ.</li></ul></div>
+  <p class="note" style="margin:0">Названия агрегатов приблизительны, пределы параметров и нормы времени придуманы для игры.</p></div>`);
+}
+
+/* ═════════════════════════ УПРАВЛЕНИЕ И ЗАПУСК ═════════════════════════ */
+function toolAct(a){
+  if (!P) return;
+  const needS = ["order","inspect","sheet","engine","radar","otk"];
+  if (needS.includes(a) && !S){ toast("Сначала возьмите наряд.","warn"); openBoard(); return; }
+  if (a==="board") openBoard();
+  else if (a==="order") openOrder(mission(), false);
+  else if (a==="inspect"){ inspectMode = !inspectMode; setXray(inspectMode); paintAll(); updateHUD(); toast(inspectMode?"Режим осмотра: обшивка прозрачна, узлы подсвечены по состоянию.":"Режим осмотра выключен."); }
+  else if (a==="sheet") openSheet();
+  else if (a==="shop") openShop();
+  else if (a==="stock") openStock();
+  else if (a==="engine") engineMenu();
+  else if (a==="radar") radarStart();
+  else if (a==="otk") otk();
+  else if (a==="profile") openProfile();
+  else if (a==="help") openHelp();
+}
+document.querySelectorAll(".rail .tool").forEach(b=>b.onclick = ()=>toolAct(b.dataset.act));
+document.querySelectorAll("#cams [data-cam]").forEach(b=>b.onclick = ()=>camTo(b.dataset.cam));
+addEventListener("keydown", e=>{
+  if (e.target.tagName==="INPUT") return;
+  if (engineActive){ const k = e.key.toLowerCase();
+    if (k==="w"||k==="ц"||e.key==="ArrowUp"){ e.preventDefault(); rudUp(); }
+    else if (k==="s"||k==="ы"||e.key==="ArrowDown"){ e.preventDefault(); rudDown(); }
+    else if (e.key===" "){ e.preventDefault(); engineStop(); }
+    return; }
+  if (RD && RD.stage===3){ const m = {ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key]; if (m){ e.preventDefault(); boreMove(...m); } return; }
+  if (e.key==="Escape"){ if ($("modalRoot").innerHTML) closeModal(); else selectPart(null); return; }
+  if (!$("menu").hidden || $("modalRoot").innerHTML || RD) return;
+  const map = {n:"board",т:"board",z:"order",я:"order",i:"inspect",ш:"inspect",v:"sheet",м:"sheet",m:"shop",ь:"shop",b:"stock",и:"stock",g:"engine",п:"engine",r:"radar",к:"radar",o:"otk",щ:"otk",h:"help",р:"help"};
+  const a = map[e.key.toLowerCase()]; if (a) toolAct(a);
+});
+function showMenu(){
+  save(); closeModal(); selectPart(null); inspectMode = false; setXray(false); paintAll();
+  uiMode("menu"); $("hud").hidden = true; $("menu").hidden = false; cam.auto = true; camTo("all"); cam.auto = true;
+  $("bCont").hidden = !P;
+}
+function enterGame(){
+  $("menu").hidden = true; syncPlane(); uiMode("hangar"); updateHUD(); camTo("all");
+  if (!S){ toast(`Добро пожаловать в цех, ${P.name}. Выберите наряд.`,"ok"); openBoard(); }
+  else toast(`Продолжаем наряд: ${mission().title}.`,"ok");
+}
+function start(data){
+  if (typeof THREE==="undefined"){ $("loading").textContent = "3D-движок не загрузился. При первом запуске нужен интернет: библиотека three.js грузится с cdnjs."; return; }
+  try { init3D(); } catch(e){ $("loading").textContent = "Не удалось запустить 3D-графику (WebGL): " + e.message; return; }
+  $("loading").hidden = true;
+  const sv = (data && data.P) ? data : loadSave();
+  if (sv){ applySave(sv); $("bCont").hidden = false; $("pName").value = P.name; }
+  uiMode("menu"); $("hud").hidden = true;
+  $("bNew").onclick = async ()=>{
+    if (P && (P.xp>0 || S) && !await confirmBox("Начать новую игру? Текущий прогресс будет удалён.","Начать заново",true)) return;
+    newPlayer(($("pName").value.trim() || "Новик").slice(0,24)); save(); enterGame(); };
+  $("bCont").onclick = ()=>{ if (P) enterGame(); };
+  if (window.claude && window.claude.hot && typeof window.claude.hot.snapshot==="function") window.claude.hot.snapshot(()=>({P,S}));
+}
+if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(start); else start((window.claude && window.claude.hot && window.claude.hot.data) || {});
+</script>
+</html>

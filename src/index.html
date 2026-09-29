@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ремонтный цех 558 АРЗ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<!--CSS-->
+</head>
+<body>
+<div id="app">
+  <canvas id="view"></canvas>
+
+  <!-- прицел и подсказка взаимодействия (режим ходьбы) -->
+  <div class="xhair" id="xhair" hidden><i></i></div>
+  <div class="prompt" id="prompt" hidden></div>
+  <div class="work" id="work" hidden><div class="work-t" id="workT"></div><div class="work-bar"><i id="workBar"></i></div><div class="work-s" id="workS"></div></div>
+  <div class="marker" id="marker" hidden><span class="marker-d" id="markerD"></span></div>
+  <div class="keys" id="keys" hidden></div>
+  <div class="resume" id="resume" hidden><b>Пауза</b><span>Щёлкните по экрану, чтобы вернуться к работе</span><small><kbd>W A S D</kbd> идти · <kbd>Shift</kbd> бег · <kbd>Ctrl</kbd> присесть · <kbd>Пробел</kbd> прыжок · <kbd>E</kbd> действие · <kbd>Q</kbd> стремянка / кабина · <kbd>F</kbd> фонарь · <kbd>T</kbd> вид от 3-го лица · <kbd>C</kbd> обзор камерой · <kbd>Esc</kbd>/<kbd>Tab</kbd> планшет</small></div>
+  <div class="fps" id="fps" hidden></div>
+
+  <div class="hud" id="hud" hidden>
+    <div class="brand"><span class="flagbar"></span><b>558 АРЗ</b></div>
+    <div class="hstat"><span class="eyebrow" id="hRank">Ученик</span><div class="xpbar"><i id="hXp" style="width:0"></i></div></div>
+    <div class="hstat"><span class="eyebrow">Счёт</span><span class="v num" id="hMoney">0</span></div>
+    <div class="hstat" id="hMissionBox"><span class="eyebrow">Наряд</span><span class="v" id="hMission">—</span></div>
+    <div class="hstat" id="hHoursBox"><span class="eyebrow">Нормо-часы</span><span class="v num" id="hHours">0</span></div>
+    <div class="chips" id="hTests"></div>
+    <div class="spacer"></div>
+    <button class="mini" id="bMode" title="Переключить режим: ходьба / обзор (C)">Обзор</button>
+    <button class="mini" id="bSettings" title="Настройки графики и управления">Настройки</button>
+  </div>
+
+  <div class="cams" id="cams" hidden>
+    <button data-cam="all">Общий вид</button>
+    <button data-cam="nose">Нос · РЛС</button>
+    <button data-cam="cockpit">Кабина</button>
+    <button data-cam="engL">Двигатель №1</button>
+    <button data-cam="engR">Двигатель №2</button>
+    <button data-cam="gear">Шасси · гидро</button>
+    <button data-cam="top">Сверху</button>
+    <button data-cam="tail">Хвост · сопла</button>
+  </div>
+
+  <div class="hint" id="hint" hidden>ЛКМ — выбрать деталь · тянуть — вращать · колесо — масштаб · ПКМ — сдвиг · C — идти пешком</div>
+
+  <aside class="card" id="card" hidden></aside>
+
+  <nav class="rail" id="rail" hidden>
+    <button class="tool" data-act="board">Наряды <kbd>N</kbd></button>
+    <button class="tool" data-act="order">Задание <kbd>Z</kbd></button>
+    <button class="tool" data-act="inspect" id="tInspect">Режим осмотра <kbd>I</kbd></button>
+    <button class="tool" data-act="sheet">Ведомость <kbd>V</kbd></button>
+    <button class="tool" data-act="shop">Снабжение <kbd>M</kbd></button>
+    <button class="tool" data-act="stock">Склад <kbd>B</kbd></button>
+    <button class="tool" data-act="engine">Гонка РД-33 <kbd>G</kbd></button>
+    <button class="tool" data-act="radar">Настройка РЛС <kbd>R</kbd></button>
+    <button class="tool hot" data-act="otk">Сдать ОТК <kbd>O</kbd></button>
+    <button class="tool" data-act="profile">Личное дело</button>
+    <button class="tool" data-act="help">Справка <kbd>H</kbd></button>
+  </nav>
+
+  <!-- сенсорное управление -->
+  <div class="touch" id="touch" hidden>
+    <div class="stick" id="stick"><i id="stickKnob"></i></div>
+    <div class="tbtns">
+      <button id="tUse" class="tb big">Действие</button>
+      <button id="tCrouch" class="tb">Присесть</button>
+      <button id="tLight" class="tb">Фонарь</button>
+      <button id="tMenu" class="tb">Планшет</button>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+  <div id="modalRoot"></div>
+  <div class="tip" id="tip" hidden></div>
+
+  <section class="eng" id="eng" hidden>
+    <div class="top">
+      <h2 id="engTitle">Газовочная площадка</h2>
+      <div class="stages" id="engStages"></div>
+      <div class="spacer" style="flex:1"></div>
+      <button class="mini" id="engView">Вид: снаружи</button>
+      <button class="mini" id="engSound">Звук: вкл</button>
+    </div>
+    <div class="alarm" id="engAlarm" hidden></div>
+    <div class="dash">
+      <div class="dials" id="dials">
+        <canvas id="dN" width="256" height="256"></canvas>
+        <canvas id="dT" width="256" height="256"></canvas>
+        <canvas id="dO" width="256" height="256"></canvas>
+        <canvas id="dV" width="256" height="256"></canvas>
+        <canvas id="dH" width="256" height="256"></canvas>
+      </div>
+      <div class="lever">
+        <span class="eyebrow">РУД · режим</span>
+        <b id="engMode" style="font-family:var(--f-display);font-size:20px">МАЛЫЙ ГАЗ</b>
+        <div class="rud"><button id="rudDown" title="Уменьшить режим (S)">▼</button><button id="rudUp" title="Увеличить режим (W)">▲</button></div>
+        <button class="btn primary" id="engFinish" disabled>Завершить гонку <small>охлаждение</small></button>
+        <button class="btn danger" id="engStop">СТОП-КРАН <small>Пробел</small></button>
+        <button class="btn" id="engReport">Доклад техника</button>
+      </div>
+      <div class="log" id="engLog"></div>
+    </div>
+  </section>
+
+  <section class="radar" id="radar" hidden><div class="crt" id="crt"></div></section>
+
+  <section class="menu" id="menu">
+    <div class="inner">
+      <div class="logo"><span class="flagbar"></span><h1>558 АРЗ<span>РЕМОНТ МиГ-29БМ</span></h1></div>
+      <p>Барановичи, ремонтный цех авиационного ремонтного завода. В ангаре на гидроподъёмниках — истребитель МиГ-29БМ ВВС Беларуси. Пройдите к самолёту, найдите неисправности, замените детали своими руками, проведите гонку двигателей и настройку РЛС и сдайте самолёт ОТК.</p>
+      <label for="pName">Фамилия авиатехника<input id="pName" maxlength="24" value="Новик" autocomplete="off"></label>
+      <div class="row">
+        <button class="btn primary" id="bNew" disabled>Новая игра</button>
+        <button class="btn" id="bCont" hidden>Продолжить</button>
+      </div>
+      <div class="row"><button class="btn" id="bMenuSettings">Настройки графики</button></div>
+      <div class="loading" id="loading"><span id="loadingT">Загрузка 3D-движка…</span><div class="loadbar"><i id="loadBar"></i></div></div>
+    </div>
+  </section>
+</div>
+<!--JS-->
+</body>
+</html>
