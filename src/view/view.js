@@ -8,8 +8,9 @@ import { buildMig29 } from "./mig29.js";
 import { buildWorld, H, PAD, SUN_DIR } from "./hangar.js";
 import { makeFlame, Particles, makeDust, makeBeam } from "./effects.js";
 import { cockpitTextures, boardNumberCanvas, flagCanvas, stencilCanvas, decal, decalMaterial, texFromCanvas } from "./decals.js";
-import { buildTechnician } from "./character.js";
+import { buildTechnician, buildViewmodel } from "./character.js";
 import { NAC, NAC_X1, FIN, CANOPY } from "./mig29dims.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { FullScreenQuad } from "three/examples/jsm/postprocessing/Pass.js";
 import { HorizontalBlurShader } from "three/examples/jsm/shaders/HorizontalBlurShader.js";
 import { VerticalBlurShader } from "three/examples/jsm/shaders/VerticalBlurShader.js";
@@ -90,6 +91,8 @@ export async function initView(canvas, quality, progress = () => {}) {
   // персонаж
   V.tech = buildTechnician(TX);
   V.scene.add(V.tech.root); V.tech.root.visible = false;
+  V.hands = buildViewmodel(TX);
+  V.camera.add(V.hands.root); V.scene.add(V.camera);
 
   progress(0.88, "Отражения окружения…"); await nextFrame();
   R.setupComposer();
@@ -233,11 +236,27 @@ function captureEnvs() {
   V.envHangar = V.R.captureEnv(new THREE.Vector3(2, 4.5, 0), hide, 256);
   placeSun(new THREE.Vector3(PAD.x, 0, PAD.z), 26);
   V.envPad = V.R.captureEnv(new THREE.Vector3(PAD.x, 3, PAD.z), hide, 256);
+  V.envHangar = envSanity(V.envHangar, new THREE.Vector3(2, 4.5, 0));
+  V.envPad = envSanity(V.envPad, new THREE.Vector3(PAD.x, 3, PAD.z));
+}
+/* страховка: если в кубокарту попали NaN/Infinity (драйвер, экзотичный GPU) — нейтральное окружение */
+function envSanity(env, at) {
+  const r = V.R.renderer, rt = new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType });
+  const probe = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshStandardMaterial({ envMap: env, roughness: 0.3, metalness: 1 }));
+  const sc = new THREE.Scene(); sc.add(probe);
+  const cam = new THREE.PerspectiveCamera(60, 1, 0.1, 10); cam.position.set(0, 0, 2.2); cam.lookAt(0, 0, 0);
+  r.setRenderTarget(rt); r.render(sc, cam);
+  const b = new Uint16Array(16 * 16 * 4); let bad = false;
+  try { r.readRenderTargetPixels(rt, 0, 0, 16, 16, b); for (let i = 0; i < b.length; i++) if ((b[i] & 0x7c00) === 0x7c00) { bad = true; break; } } catch (e) { /* чтение не поддерживается — считаем, что всё в порядке */ }
+  r.setRenderTarget(null); rt.dispose(); probe.geometry.dispose(); probe.material.dispose(); void at;
+  if (!bad) return env;
+  console.warn("envSanity: NaN в карте окружения, используем RoomEnvironment");
+  return V.R.pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 }
 export function recaptureHangarEnv() {
   if (V.world !== "hangar") return;
   const hide = [V.M.group, V.tech.root, V.fx.fire.points, V.fx.smoke.points, V.marker, ...(V.fx.beams || []), V.fx.dust, V.plane2].filter(Boolean);
-  const old = V.envHangar; V.envHangar = V.R.captureEnv(new THREE.Vector3(2, 4.5, 0), hide, 256);
+  const old = V.envHangar; V.envHangar = envSanity(V.R.captureEnv(new THREE.Vector3(2, 4.5, 0), hide, 256), null);
   V.scene.environment = V.envHangar; if (old) old.dispose();
 }
 
@@ -249,10 +268,10 @@ export function setWorld(w, force) {
   if (w === "pad") {
     M.group.position.set(PAD.x, 0, PAD.z); M.group.rotation.y = PAD.ry;
     placeSun(new THREE.Vector3(PAD.x, 0, PAD.z), 26);
-    V.sun.intensity = 5.2; V.key.intensity = 0; V.key.castShadow = false; V.hemi.intensity = 0.55; V.hemi.color.set("#cfe0f2"); V.hemi.groundColor.set("#6d6a60");
-    V.scene.environment = V.envPad; V.scene.environmentIntensity = 1.0; V.R.exposure = 0.62;
+    V.sun.intensity = 4.6; V.key.intensity = 0; V.key.castShadow = false; V.hemi.intensity = 0.35; V.hemi.color.set("#cfe0f2"); V.hemi.groundColor.set("#6d6a60");
+    V.scene.environment = V.envPad; V.scene.environmentIntensity = 0.8; V.R.exposure = 0.46;
     V.spots.forEach((s) => (s.visible = false));
-    V.scene.fog = new THREE.Fog("#c7d3dc", 120, 700);
+    V.scene.fog = new THREE.Fog("#b9c9d6", 260, 1100);
   } else {
     M.group.position.set(0, H.lift, 0); M.group.rotation.y = 0;
     placeSun(new THREE.Vector3(0, 0, 0), 40);

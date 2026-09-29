@@ -560,9 +560,11 @@ export function buildWorld(L, TX, opts = {}) {
     outside.add(truck); dyn.fireTruck = truck;
     // другие ангары и постройки вдали
     const bm = new THREE.MeshStandardMaterial({ color: "#aeb4b6", roughness: 0.85, metalness: 0.3, map: TX.corrugated.map, normalMap: TX.corrugated.normal });
-    for (const [x, z, w, d, h] of [[150, -70, 50, 36, 13], [150, 60, 40, 30, 11], [60, -90, 30, 24, 8], [-60, 60, 60, 40, 14], [230, 0, 30, 60, 9]]) {
+    for (const [x, z, w, d, h] of [[150, -70, 50, 36, 10], [150, 60, 40, 30, 9], [60, -90, 30, 24, 7], [-60, 60, 60, 40, 10], [230, 0, 30, 60, 8]]) {
       const hb = new THREE.Mesh(box(w, h, d, x, h / 2, z), bm); hb.castShadow = hb.receiveShadow = true; outside.add(hb);
-      const rf = new THREE.Mesh(place(new THREE.CylinderGeometry(d / 2, d / 2, w, 24, 1, false, 0, Math.PI), x, h, z, 0, 0, Math.PI / 2, 1, 1, 0.2), bm); outside.add(rf);
+      const arch = new THREE.CylinderGeometry(d / 2, d / 2, w, 32, 1, false, -Math.PI / 2, Math.PI);
+      arch.rotateZ(Math.PI / 2); arch.scale(1, 0.32, 1); arch.translate(x, h, z);
+      const rf = new THREE.Mesh(arch, bm); rf.castShadow = true; outside.add(rf);
     }
     // тело самого ангара снаружи (кровля видна с площадки)
     const shell = new THREE.MeshStandardMaterial({ color: "#c3c9cc", roughness: 0.7, metalness: 0.4, map: TX.corrugated.map, normalMap: TX.corrugated.normal });
@@ -571,20 +573,27 @@ export function buildWorld(L, TX, opts = {}) {
       const g = box(61, 0.2, len + 0.6, 0, 0, 0); g.rotateX(s * ang); g.translate(0, (H.eave + H.ridge) / 2 + 0.15, s * H.z / 2);
       const rm = new THREE.Mesh(g, shell); rm.castShadow = true; rm.receiveShadow = true; hangar.add(rm);
     }
-    // лес
-    const treeGeo = new THREE.ConeGeometry(1, 1, 7); treeGeo.translate(0, 0.5, 0);
-    const trees = new THREE.InstancedMesh(treeGeo, new THREE.MeshStandardMaterial({ color: "#35512f", roughness: 1 }), 420);
-    const trunkM = new THREE.Matrix4(), rnd = T.mulberry32(99);
-    for (let i = 0; i < 420; i++) {
-      const a = rnd() * TAU, r = 260 + rnd() * 160, h = 14 + rnd() * 12, w = 3 + rnd() * 2.5;
-      trunkM.compose(new THREE.Vector3(Math.cos(a) * r + 40, 0, Math.sin(a) * r), new THREE.Quaternion(), new THREE.Vector3(w, h, w));
-      trees.setMatrixAt(i, trunkM);
+    // лес: ели (ярусы конусов) и лиственные кроны, с вариацией оттенков
+    const spruce = mergeAll([new THREE.ConeGeometry(0.42, 0.5, 8).translate(0, 0.45, 0), new THREE.ConeGeometry(0.34, 0.42, 8).translate(0, 0.72, 0), new THREE.ConeGeometry(0.24, 0.34, 8).translate(0, 0.93, 0), new THREE.CylinderGeometry(0.04, 0.05, 0.3, 6).translate(0, 0.15, 0)]);
+    const leafy = mergeAll([new THREE.IcosahedronGeometry(0.5, 1).scale(1, 0.85, 1).translate(0, 0.78, 0), new THREE.IcosahedronGeometry(0.34, 1).translate(0.25, 1.05, 0.1), new THREE.CylinderGeometry(0.035, 0.05, 0.5, 6).translate(0, 0.25, 0)]);
+    const treeMat = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 1 });
+    const rnd = T.mulberry32(99), m4 = new THREE.Matrix4(), col = new THREE.Color();
+    for (const [geo, n, base] of [[spruce, 520, "#2c4a2c"], [leafy, 300, "#4f6d35"]]) {
+      const inst = new THREE.InstancedMesh(geo, treeMat, n);
+      for (let i = 0; i < n; i++) {
+        const a = rnd() * TAU, r = 300 + rnd() * 180, h = 16 + rnd() * 14;
+        m4.compose(new THREE.Vector3(Math.cos(a) * r + 40, 0, Math.sin(a) * r), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rnd() * TAU, 0)), new THREE.Vector3(h * (0.8 + rnd() * 0.4), h, h * (0.8 + rnd() * 0.4)));
+        inst.setMatrixAt(i, m4); inst.setColorAt(i, col.set(base).offsetHSL((rnd() - 0.5) * 0.04, (rnd() - 0.5) * 0.1, (rnd() - 0.5) * 0.08));
+      }
+      inst.castShadow = false; outside.add(inst);
     }
-    trees.castShadow = false; outside.add(trees);
     // небо
     const sky = new Sky(); sky.scale.setScalar(800);
-    const u = sky.material.uniforms; u.turbidity.value = 5.5; u.rayleigh.value = 1.3; u.mieCoefficient.value = 0.004; u.mieDirectionalG.value = 0.8;
+    const u = sky.material.uniforms; u.turbidity.value = 3.8; u.rayleigh.value = 1.1; u.mieCoefficient.value = 0.0022; u.mieDirectionalG.value = 0.76;
     u.sunPosition.value.copy(SUN_DIR).multiplyScalar(400);
+    // яркость солнечного диска ограничиваем: иначе в half-float кубокарте получается Infinity → NaN после PMREM
+    sky.material.fragmentShader = sky.material.fragmentShader.replace("gl_FragColor = vec4( texColor, 1.0 );",
+      "texColor = clamp( texColor, 0.0, 2000.0 ); if ( any( isnan( texColor ) ) ) texColor = vec3( 0.0 ); gl_FragColor = vec4( texColor, 1.0 );");
     outside.add(sky); dyn.sky = sky;
   }
   // уличные невидимые границы

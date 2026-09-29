@@ -371,12 +371,13 @@ export function apronSet() {
   const S = sz(1024), rnd = mulberry32(91);
   const c = canvas(S, S), g = c.getContext("2d");
   const n = noiseField(256, 256, 8, 5, 92), s = canvas(256, 256), sg = s.getContext("2d"), id = sg.createImageData(256, 256);
-  for (let i = 0; i < 65536; i++) { const v = 0.92 + (n[i] - 0.5) * 0.3; id.data[i * 4] = 150 * v; id.data[i * 4 + 1] = 151 * v; id.data[i * 4 + 2] = 147 * v; id.data[i * 4 + 3] = 255; }
+  for (let i = 0; i < 65536; i++) { const v = 0.9 + (n[i] - 0.5) * 0.36; id.data[i * 4] = 128 * v; id.data[i * 4 + 1] = 129 * v; id.data[i * 4 + 2] = 125 * v; id.data[i * 4 + 3] = 255; }
   sg.putImageData(id, 0, 0); g.drawImage(s, 0, 0, S, S);
   for (let i = 0; i < S * S / 60; i++) { const v = 100 + rnd() * 100; g.fillStyle = `rgba(${v},${v},${v},.15)`; g.fillRect(rnd() * S, rnd() * S, 2, 2); }
-  for (let i = 0; i < 8; i++) blot(g, rnd() * S, rnd() * S, S * 0.05, "60,56,50", 0.06, rnd);
+  for (let i = 0; i < 16; i++) blot(g, rnd() * S, rnd() * S, S * (0.03 + rnd() * 0.06), "60,56,50", 0.08, rnd);
+  for (let i = 0; i < 30; i++) { g.strokeStyle = `rgba(40,40,38,${0.2 + rnd() * 0.3})`; g.lineWidth = 1 + rnd(); let x = rnd() * S, y = rnd() * S; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 12; k++) { x += (rnd() - 0.5) * S * 0.03; y += (rnd() - 0.5) * S * 0.03; g.lineTo(x, y); } g.stroke(); }
   // швы плит, заполненные мастикой
-  g.fillStyle = "rgba(35,35,33,.9)"; const jw = Math.max(2, S * 0.004);
+  g.fillStyle = "rgba(38,38,36,.75)"; const jw = Math.max(2, S * 0.003);
   g.fillRect(0, 0, S, jw); g.fillRect(0, S / 3, S, jw); g.fillRect(0, (2 * S) / 3, S, jw); g.fillRect(0, 0, jw, S);
   const H = new Float32Array(S * S);
   const cd = g.getImageData(0, 0, S, S).data;

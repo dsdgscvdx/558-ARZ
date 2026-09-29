@@ -102,3 +102,48 @@ export function buildTechnician(T) {
   }
   return { root, animate, parts: { head, hips, arms, legs } };
 }
+
+/* Руки от первого лица (видны во время работы): перчатки, рукава комбинезона, ключ или тестер. */
+export function buildViewmodel(T) {
+  const suit = new THREE.MeshStandardMaterial({ color: "#2e3a48", roughness: 0.92, normalMap: T.fabric.normal });
+  const glove = new THREE.MeshStandardMaterial({ color: "#6d5b3e", roughness: 0.85 });
+  const toolM = new THREE.MeshStandardMaterial({ color: "#c3c8cc", roughness: 0.22, metalness: 1 });
+  const box = new THREE.MeshStandardMaterial({ color: "#d9b12a", roughness: 0.5 });
+  const led = new THREE.MeshStandardMaterial({ color: "#000", emissive: "#44ff88", emissiveIntensity: 3 });
+  const root = new THREE.Group(); root.visible = false;
+  const arm = (s) => {
+    const g = new THREE.Group();
+    const sleeve = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.28, 4, 10), suit); sleeve.rotation.x = Math.PI / 2; sleeve.position.z = 0.16; g.add(sleeve);
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.045, 0.1), glove); hand.position.z = -0.02; g.add(hand);
+    const fingers = new THREE.Mesh(new THREE.CapsuleGeometry(0.022, 0.05, 2, 8), glove); fingers.rotation.z = Math.PI / 2; fingers.position.set(0, -0.01, -0.075); g.add(fingers);
+    g.position.set(s * 0.17, -0.2, -0.36); g.rotation.set(0.25, -s * 0.18, 0);
+    root.add(g); return g;
+  };
+  const R = arm(1), Lh = arm(-1);
+  const wrench = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.008, 0.2), toolM); shaft.position.z = -0.12; wrench.add(shaft);
+  const head = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.008, 6, 14, Math.PI * 1.5), toolM); head.rotation.x = Math.PI / 2; head.position.z = -0.23; wrench.add(head);
+  wrench.position.set(0, 0.01, -0.03); R.add(wrench);
+  const tester = new THREE.Group();
+  const tb = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.03, 0.11), box); tester.add(tb);
+  const tl = new THREE.Mesh(new THREE.SphereGeometry(0.006, 8, 6), led); tl.position.set(0.02, 0.017, -0.03); tester.add(tl);
+  const probe = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.12, 6), toolM); probe.rotation.x = Math.PI / 2; probe.position.set(-0.02, 0, -0.11); tester.add(probe);
+  tester.position.set(0, 0.02, -0.05); Lh.add(tester);
+  root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; o.frustumCulled = false; } });
+  let t = 0, show = 0;
+  function update(dt, kind) {
+    t += dt;
+    show += ((kind ? 1 : 0) - show) * Math.min(1, dt * 8);
+    root.visible = show > 0.02;
+    if (!root.visible) return;
+    const slide = (1 - show) * 0.25;
+    wrench.visible = kind !== "inspect"; tester.visible = kind === "inspect";
+    const k = kind === "inspect" ? 0 : 1;
+    R.position.set(0.15, -0.15 - slide + Math.sin(t * 9) * 0.012 * k, -0.34 + Math.sin(t * 9) * 0.015 * k);
+    R.rotation.set(0.25 + Math.sin(t * 9) * 0.25 * k, -0.18, Math.sin(t * 9) * 0.35 * k);
+    Lh.position.set(-0.14, -0.15 - slide + Math.sin(t * 2.3) * 0.005, -0.32);
+    Lh.rotation.set(kind === "inspect" ? 0.55 : 0.2, 0.18, 0);
+    tl.material.emissiveIntensity = kind === "inspect" ? (Math.sin(t * 12) > 0 ? 4 : 0.3) : 0;
+  }
+  return { root, update };
+}

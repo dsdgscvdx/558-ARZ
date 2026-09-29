@@ -7,7 +7,7 @@ import { mergeAll } from "../view/geo.js";
 export class Collider {
   constructor(geos, object3d = null) {
     const g = mergeAll(geos);
-    g.boundsTree = new MeshBVH(g, { maxLeafSize: 8 });
+    g.boundsTree = new MeshBVH(g, { targetLeafSize: 8 });
     this.geo = g; this.bvh = g.boundsTree;
     this.obj = object3d;                  // если задан — коллайдер в локальных координатах объекта
     this.enabled = true;

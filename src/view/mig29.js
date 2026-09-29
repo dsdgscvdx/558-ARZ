@@ -330,11 +330,12 @@ export function buildMig29(L, { detail = 1 } = {}) {
     const nzc = NAC(NAC_X1), petals = [], seals = [];
     const P = 18, NL = 0.72;
     for (let k = 0; k < P; k++) {
-      const a = (k / P) * TAU, hw = (TAU / P) * 0.52;
-      petals.push(gridSurface((u, v) => { const x = NAC_X1 - u * NL, r = 0.472 - 0.075 * Math.pow(u, 1.2) + (k % 2) * 0.004; const t = a + v * hw; return [x, nzc.cy + r * Math.cos(t), nzc.cz + r * Math.sin(t)]; },
+      // створки внахлёст: каждая чуть повёрнута и приподнята над соседней — видна «чешуя» сопла
+      const a = (k / P) * TAU, hw = (TAU / P) * 0.56, lift = (k % 2) * 0.009;
+      petals.push(gridSurface((u, v) => { const x = NAC_X1 - u * NL, r = 0.472 - 0.078 * Math.pow(u, 1.15) + lift + v * 0.004; const t = a + v * hw; return [x, nzc.cy + r * Math.cos(t), nzc.cz + r * Math.sin(t)]; },
         range(0, 1, 6), range(-1, 1, 4)));
       const b = a + TAU / P / 2;
-      seals.push(gridSurface((u, v) => { const x = NAC_X1 - u * NL * 0.97, r = 0.466 - 0.073 * Math.pow(u, 1.2); const t = b + v * 0.05; return [x, nzc.cy + r * Math.cos(t), nzc.cz + r * Math.sin(t)]; },
+      seals.push(gridSurface((u, v) => { const x = NAC_X1 - u * NL * 0.98, r = 0.468 - 0.077 * Math.pow(u, 1.15) + 0.012; const t = b + v * 0.022; return [x, nzc.cy + r * Math.cos(t), nzc.cz + r * Math.sin(t)]; },
         range(0, 1, 4), [-1, 1]));
     }
     const ring = mergeAll([torus(0.478, 0.018, "x", NAC_X1 + 0.01, nzc.cy, nzc.cz, 6, 40), torus(0.4, 0.012, "x", NAC_X1 - NL, nzc.cy, nzc.cz, 6, 40)]);
@@ -417,7 +418,7 @@ export function buildMig29(L, { detail = 1 } = {}) {
     const brace = mergeAll([tube([[gx, 1.35, lz], [gx + 0.5, 1.75, lz - 0.08], [gx + 0.9, 2.05, lz - 0.12]], 0.035, 12, 8), tube([[gx - 0.02, 1.25, lz], [gx - 0.2, 1.7, lz - 0.2], [gx - 0.35, 2.05, lz - 0.3]], 0.026, 12, 8)]);
     part("strut_" + S, [[mz(mergeAll([barrel, axle, links, brace])), L.gearPaint], [mz(piston), L.chrome]], V(0, -0.4, 0.9 * s));
     // створка ниши основной стойки
-    air(mz(mergeAll([box(1.0, 0.95, 0.012, gx - 0.2, 1.55, lz + 0.12), box(0.5, 0.012, 0.3, gx + 0.35, 2.05, lz - 0.28)])), L.paintDouble);
+    air(mz(mergeAll([box(0.72, 0.72, 0.012, gx - 0.12, 1.62, lz + 0.11), box(0.5, 0.012, 0.3, gx + 0.35, 2.05, lz - 0.28)])), L.paintDouble);
     // фара на стойке (левой)
     if (s < 0) air(mz(cyl(0.05, 0.055, 0.07, "x", gx + 0.12, 1.3, lz, 14)), L.chrome);
     colliders.push(mz(cyl(0.45, 0.45, 1.2, "y", gx, 0.6, (lz + wz) / 2, 12)));

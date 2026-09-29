@@ -16,8 +16,8 @@ const flameFrag = /* glsl */ `
     float t = clamp(-vL.y / uLen, 0.0, 1.0);          // 0 — срез сопла, 1 — конец факела
     float ang = atan(vL.x, vL.z);
     float n = noise(vec2(ang * 2.0, t * 9.0 - uTime * 26.0)) * 0.6 + noise(vec2(ang * 5.0, t * 22.0 - uTime * 41.0)) * 0.4;
-    float fres = pow(abs(dot(normalize(vN), normalize(vV))), 1.6);
-    float along = smoothstep(0.0, 0.05, t) * (1.0 - smoothstep(0.35, 1.0, t));
+    float fres = pow(abs(dot(normalize(vN), normalize(vV))), 1.1);
+    float along = smoothstep(0.0, 0.03, t) * (1.0 - smoothstep(0.3, 1.0, t));
     // скачки уплотнения: периодические яркие зоны
     float diam = 0.0;
     for (int i = 0; i < 6; i++){ float c = 0.09 + float(i) * 0.095; diam += exp(-pow((t - c) * 38.0, 2.0)) * (1.0 - float(i) * 0.14); }
@@ -25,7 +25,7 @@ const flameFrag = /* glsl */ `
     float I = along * (0.55 + 0.45 * n) * fres;
     I += diam * uAB * 1.6 * fres * uLayer;
     I *= mix(0.25, 1.0, uAB) * uPower * (1.0 + uSurge * 1.5 * n);
-    gl_FragColor = vec4(col * I * mix(2.0, 9.0, uAB), 1.0);
+    gl_FragColor = vec4(col * I * mix(2.5, 14.0, uAB), 1.0);
   }`;
 
 export function makeFlame() {
@@ -37,13 +37,19 @@ export function makeFlame() {
       uniforms: { uTime: { value: 0 }, uPower: { value: 0 }, uAB: { value: 0 }, uLen: { value: len }, uLayer: { value: layer }, uColA: { value: new THREE.Color(a) }, uColB: { value: new THREE.Color(b) }, uSurge: { value: 0 } },
       vertexShader: flameVert, fragmentShader: flameFrag, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide, toneMapped: true,
     });
-    const mesh = new THREE.Mesh(geo, m); mesh.rotation.z = Math.PI / 2; mesh.frustumCulled = false; g.add(mesh); layers.push({ mesh, len });
+    const mesh = new THREE.Mesh(geo, m); mesh.rotation.z = -Math.PI / 2; mesh.frustumCulled = false; g.add(mesh); layers.push({ mesh, len });
     return mesh;
   };
-  mk(0.36, 0.2, 5.5, "#ff8a2a", "#ff4a10", 0.35);     // внешний оранжевый
-  mk(0.3, 0.08, 3.6, "#9fb8ff", "#ffc060", 1.0);      // ядро с «бриллиантами»
-  mk(0.18, 0.02, 2.2, "#ffffff", "#ffd27a", 0.8);     // горячая сердцевина
-  const light = new THREE.PointLight("#ff8a3a", 0, 22, 1.6); light.position.x = -2.0; g.add(light);
+  mk(0.42, 0.26, 6.5, "#ff9a3a", "#ff5a18", 0.3);      // внешний оранжевый
+  mk(0.36, 0.12, 4.4, "#8fb0ff", "#ffc060", 1.0);      // ядро со скачками уплотнения
+  mk(0.24, 0.03, 2.6, "#ffffff", "#ffd27a", 0.9);      // горячая сердцевина
+  // «бриллианты» — яркие диски скачков уплотнения
+  const dm = [];
+  for (let i = 0; i < 5; i++) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.16 - i * 0.018, 14, 10), new THREE.MeshBasicMaterial({ color: "#fff2c8", transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    m.position.x = -(0.45 + i * 0.52); m.scale.set(1.8, 1, 1); g.add(m); dm.push(m);
+  }
+  const light = new THREE.PointLight("#ff8a3a", 0, 26, 1.5); light.position.x = -2.0; g.add(light);
   g.visible = false;
   return {
     group: g, light,
@@ -51,9 +57,10 @@ export function makeFlame() {
       g.visible = power > 0.05;
       for (const { mesh } of layers) { const u = mesh.material.uniforms; u.uTime.value = time; u.uPower.value = power; u.uAB.value = ab; u.uSurge.value = surge; }
       const s = 0.55 + ab * 0.45 + surge * 0.3;
-      g.scale.set(0.5 + ab * 0.5 + power * 0.1, 1, 1); g.scale.y = g.scale.z = 0.8 + ab * 0.35;
+      g.scale.set(0.45 + ab * 0.55 + power * 0.1, 0.85 + ab * 0.3, 0.85 + ab * 0.3);
       layers[0].mesh.scale.y = s; layers[1].mesh.scale.y = 0.6 + ab * 0.4;
-      light.intensity = ab * (18 + Math.random() * 6) + power * 1.5;
+      dm.forEach((d, i) => { d.material.opacity = ab * (0.85 - i * 0.14) * (0.8 + Math.random() * 0.2); d.material.color.setRGB(1.6, 1.35, 0.9); });
+      light.intensity = ab * (30 + Math.random() * 10) + power * 2;
     },
   };
 }

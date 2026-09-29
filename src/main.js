@@ -3,6 +3,7 @@ import * as THREE from "three";
 import * as VW from "./view/view.js";
 import { QUALITY } from "./view/render.js";
 import { Collider } from "./world/physics.js";
+import { computeBoundsTree, disposeBoundsTree, acceleratedRaycast } from "three-mesh-bvh";
 import { Player } from "./world/player.js";
 import * as G from "./game/game.js";
 import * as A from "./audio.js";
@@ -10,6 +11,10 @@ import { label, PT, ST } from "./game/data.js";
 import { $, clamp, esc } from "./util.js";
 
 const V = VW.V;
+// ускоренный рейкаст (BVH) для прицела и выбора деталей
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
+THREE.BufferGeometry.prototype.disposeBoundsTree = disposeBoundsTree;
+THREE.Mesh.prototype.raycast = acceleratedRaycast;
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const isTouch = matchMedia("(pointer:coarse)").matches || "ontouchstart" in window;
 const canvas = $("view");
@@ -46,6 +51,7 @@ async function boot() {
   if (!q || !QUALITY[q]) { const tmp = new (await import("./view/render.js")).Render(document.createElement("canvas")); q = tmp.detectDefault(); tmp.renderer.dispose(); settings.quality = q; }
   await VW.initView(canvas, q, setP);
   V.status = (id) => G.viewStatus(id);
+  for (const m of V.pickables) if (m.geometry && !m.geometry.boundsTree && m.geometry.attributes.position.count > 300) m.geometry.computeBoundsTree();
   V.camera.fov = settings.fov; V.camera.updateProjectionMatrix();
   // физика
   cols = [new Collider(V.W.colliders), new Collider(V.M.colliders, V.M.group)];
@@ -101,12 +107,13 @@ function setMode(m) {
 }
 function updateRail() {
   const menuOpen = mode === "menu" || mode === "engine" || mode === "radar";
-  const show = !menuOpen && (mode === "orbit" || !locked || isTouch);
+  const cardUp = !$("card").hidden || !!working;
+  const show = !menuOpen && (mode === "orbit" || ((!locked || isTouch) && !cardUp));
   $("rail").hidden = !show || (isTouch && mode === "walk" && !railTouch);
   $("resume").hidden = !(mode === "walk" || mode === "seat") || locked || isTouch || G.modalOpen() || !$("card").hidden || !!working;
   $("keys").hidden = !(mode === "walk" || mode === "seat") || isTouch || !locked;
 }
-let railTouch = false;
+let railTouch = false, railKey = "";
 function updateKeys() {
   if (mode === "seat") $("keys").innerHTML = `<kbd>E</kbd> бортовое питание · <kbd>Q</kbd> выйти из кабины · мышь — осмотреться`;
   else $("keys").innerHTML = `<kbd>W A S D</kbd> идти · <kbd>Shift</kbd> бег · <kbd>Ctrl</kbd> присесть · <kbd>E</kbd> действие · <kbd>Q</kbd> доп. действие · <kbd>F</kbd> фонарь · <kbd>T</kbd> вид ${player && player.third ? "1-го" : "3-го"} лица · <kbd>C</kbd> обзор · <kbd>Tab</kbd> планшет`;
@@ -278,7 +285,7 @@ const REACH = 2.6, SPOT_REACH = 3.3;
 const _o = new THREE.Vector3(), _d = new THREE.Vector3(), _hitP = new THREE.Vector3();
 function aimTarget() {
   V.camera.getWorldPosition(_o); V.camera.getWorldDirection(_d);
-  raycaster.set(_o, _d); raycaster.far = 6;
+  raycaster.set(_o, _d); raycaster.far = 6; raycaster.firstHitOnly = true;
   let best = null;
   const hits = raycaster.intersectObjects(V.pickables.filter(visibleChain), false);
   for (const h of hits) {
@@ -404,6 +411,7 @@ function doWork(title, kind, hours) {
     working = { t: 0, dur, res, kind, cancel: false };
     $("workT").textContent = title; $("workS").textContent = `${hours.toFixed(1)} нормо-ч · Esc — прервать`;
     $("work").hidden = false; $("workBar").style.width = "0";
+    working.cardWas = !$("card").hidden; $("card").hidden = true;
     if (player && (mode === "walk" || mode === "seat")) player.mode = "frozen";
     A.toolWork(kind, dur);
     updateRail();
@@ -417,7 +425,9 @@ function stepWork(dt) {
   if (w.cancel || w.t >= w.dur) {
     working = null; $("work").hidden = true;
     if (player && player.mode === "frozen") player.mode = "walk";
-    w.res(!w.cancel); updateRail();
+    w.res(!w.cancel);
+    if (w.cardWas && G.selected) G.renderCard();
+    updateRail();
   }
 }
 
@@ -540,6 +550,8 @@ function loop(t) {
   // антенна РЛС качается при контроле сектора
   if (V.parts.radar_drive) { const g = V.parts.radar_drive.meshes[0]; void g; }
   stepWork(dt); updateMarker(dt);
+  { const k = `${mode}|${locked}|${$("card").hidden}|${!!working}|${G.modalOpen()}|${railTouch}`; if (k !== railKey) { railKey = k; updateRail(); } }
+  V.hands.update(dt, working && (mode === "walk" || mode === "seat") && !player.third && working.kind !== "visual" ? working.kind : null);
   A.ambienceTick(dt);
   VW.frameView(dt, time);
   V.R.render(dt);

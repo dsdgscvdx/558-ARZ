@@ -12,7 +12,7 @@ export class Player {
     this.pos = new THREE.Vector3(8, 0, -10);
     this.vel = new THREE.Vector3();
     this.yaw = 2.4; this.pitch = -0.08;
-    this.radius = 0.28; this.hStand = 1.8; this.hCrouch = 1.15; this.h = 1.8;
+    this.radius = 0.28; this.hStand = 1.8; this.hCrouch = 1.0; this.h = 1.8;
     this.crouch = 0; this.wantCrouch = false;
     this.onGround = false; this.mode = "walk";           // walk | ladder | seat | frozen
     this.third = false; this.speed = 0; this.moveDir = new THREE.Vector3();
