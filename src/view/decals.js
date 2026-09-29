@@ -57,7 +57,7 @@ export function cockpitTextures() {
   gp.fillStyle = "#c62828"; gp.fillRect(900, 30, 60, 60);
   const consoleMap = texFromCanvas(pc);
   // символика ИЛС
-  const hc = canvas(256, 192), gh = hc.getContext("2d");
+  const hc = canvas(256, 192), gh = hc.getContext("2d"); gh.fillStyle = "#000"; gh.fillRect(0, 0, 256, 192);
   gh.strokeStyle = "#7dffa8"; gh.lineWidth = 2; gh.beginPath(); gh.arc(128, 96, 14, 0, 7); gh.moveTo(100, 96); gh.lineTo(114, 96); gh.moveTo(142, 96); gh.lineTo(156, 96); gh.moveTo(128, 82); gh.lineTo(128, 72); gh.stroke();
   for (let i = -2; i <= 2; i++) { if (!i) continue; gh.beginPath(); gh.moveTo(60, 96 + i * 30); gh.lineTo(100, 96 + i * 30); gh.moveTo(156, 96 + i * 30); gh.lineTo(196, 96 + i * 30); gh.stroke(); }
   gh.font = "14px monospace"; gh.fillStyle = "#7dffa8"; gh.fillText("0.00", 10, 20); gh.fillText("000", 210, 20);

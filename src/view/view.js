@@ -49,7 +49,7 @@ export async function initView(canvas, quality, progress = () => {}) {
   const ck = cockpitTextures();
   L.panelMat = new THREE.MeshStandardMaterial({ map: ck.panelMap, emissiveMap: ck.panelEmis, emissive: "#ffffff", emissiveIntensity: 0, roughness: 0.6 });
   L.consoleMat = new THREE.MeshStandardMaterial({ map: ck.consoleMap, roughness: 0.7 });
-  L.hudGlass = new THREE.MeshPhysicalMaterial({ color: "#88aa99", roughness: 0.05, metalness: 0, transparent: true, opacity: 0.25, emissiveMap: ck.hudTex, emissive: "#ffffff", emissiveIntensity: 0, depthWrite: false, side: THREE.DoubleSide });
+  L.hudGlass = new THREE.MeshBasicMaterial({ map: ck.hudTex, color: "#000000", transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   L.canopyGlass = R.q.glass ? L.canopy : L.canopyFallback;
   L.blackCyl = new THREE.MeshStandardMaterial({ color: "#1e2326", roughness: 0.5, metalness: 0.3 });
   L.redSign = new THREE.MeshStandardMaterial({ color: "#c62828", roughness: 0.6 });
@@ -403,7 +403,7 @@ export function setCanopy(open) { V.canopyTarget = open ? 1 : 0; }
 export function setPower(on) {
   V.power = on;
   const L = V.L, M = V.M;
-  L.panelMat.emissiveIntensity = on ? 1.6 : 0; L.hudGlass.emissiveIntensity = on ? 2.2 : 0;
+  L.panelMat.emissiveIntensity = on ? 1.6 : 0; L.hudGlass.color.set(on ? "#b8ffcf" : "#000000");
   for (const k of ["navL", "navR", "tail"]) M.lights[k].material.emissiveIntensity = on ? 6 : 0;
 }
 export function setDoor(open) { V.doorTarget = open ? 1 : 0; }
@@ -436,7 +436,7 @@ export function catastropheFx(side, on) {
 /* ═════════════ камера-облёт (режим обзора) ═════════════ */
 export const orbit = { t: new THREE.Vector3(0, 1.6, 0), r: 21, th: 0.75, ph: 1.15, goal: null, auto: true };
 export const CAMS = {
-  all: [[0, 1.6, 0], 21, 0.75, 1.15], nose: [[7, 1.9, 0], 6.5, 0.7, 1.2], cockpit: [[2.8, 2.5, 0], 5.5, 1.35, 0.75], engL: [[-2.5, 1.3, -1.05], 6, -1.95, 1.3],
+  all: [[0, 1.6, 0], 21, 0.75, 1.15], menu: [[0.6, 1.9, 0], 12.5, 0.95, 1.32], nose: [[7, 1.9, 0], 6.5, 0.7, 1.2], cockpit: [[2.8, 2.5, 0], 5.5, 1.35, 0.75], engL: [[-2.5, 1.3, -1.05], 6, -1.95, 1.3],
   engR: [[-2.5, 1.3, 1.05], 6, 1.95, 1.3], gear: [[-0.8, 0.9, 0], 7.5, -1.15, 1.42], top: [[-0.5, 2, 0], 19, -1.5708, 0.08], tail: [[-7, 1.5, 0], 7.5, 2.6, 1.3],
   engineRunL: [[-6.5, 1.4, -1], 17, -2.25, 1.2], engineRunR: [[-6.5, 1.4, 1], 17, 2.25, 1.2], engineCockpit: [[3.4, 3.05, 0], 0.01, 0, 1.5],
 };

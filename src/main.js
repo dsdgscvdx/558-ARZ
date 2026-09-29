@@ -18,6 +18,7 @@ THREE.Mesh.prototype.raycast = acceleratedRaycast;
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const isTouch = matchMedia("(pointer:coarse)").matches || "ontouchstart" in window;
 const canvas = $("view");
+if (isTouch) document.body.classList.add("is-touch");
 
 /* ═════════════ настройки ═════════════ */
 const SET_KEY = "arz558-settings-v2";
@@ -110,10 +111,10 @@ function updateRail() {
   const cardUp = !$("card").hidden || !!working;
   const show = !menuOpen && (mode === "orbit" || ((!locked || isTouch) && !cardUp));
   $("rail").hidden = !show || (isTouch && mode === "walk" && !railTouch);
-  $("resume").hidden = !(mode === "walk" || mode === "seat") || locked || isTouch || G.modalOpen() || !$("card").hidden || !!working;
+  $("resume").hidden = !(mode === "walk" || mode === "seat") || locked || isTouch || lockFailed || G.modalOpen() || !$("card").hidden || !!working;
   $("keys").hidden = !(mode === "walk" || mode === "seat") || isTouch || !locked;
 }
-let railTouch = false, railKey = "";
+let railTouch = false, railKey = "", lastNear = null;
 function updateKeys() {
   if (mode === "seat") $("keys").innerHTML = `<kbd>E</kbd> бортовое питание · <kbd>Q</kbd> выйти из кабины · мышь — осмотреться`;
   else $("keys").innerHTML = `<kbd>W A S D</kbd> идти · <kbd>Shift</kbd> бег · <kbd>Ctrl</kbd> присесть · <kbd>E</kbd> действие · <kbd>Q</kbd> доп. действие · <kbd>F</kbd> фонарь · <kbd>T</kbd> вид ${player && player.third ? "1-го" : "3-го"} лица · <kbd>C</kbd> обзор · <kbd>Tab</kbd> планшет`;
@@ -122,14 +123,14 @@ function enterGame() {
   $("menu").hidden = true; G.syncPlane(); G.uiMode("hangar"); G.updateHUD();
   A.ambienceStart();
   setMode(isTouch ? "walk" : "walk");
-  if (!G.S) { G.toast(`Добро пожаловать в цех, ${G.P.name}. Подойдите к доске нарядов у стены или нажмите N.`, "ok", 6000); setMarkerPoint(new THREE.Vector3(-2.5, 1.9, -21.4), "Доска нарядов"); }
+  if (!G.S) { G.toast(`Добро пожаловать в цех, ${G.P.name}. Подойдите к доске нарядов у стены или ${isTouch ? "откройте «Планшет»" : "нажмите N"}.`, "ok", 6000); setMarkerPoint(new THREE.Vector3(-2.5, 1.9, -21.4), "Доска нарядов"); }
   else G.toast(`Продолжаем наряд: ${G.mission().title}.`, "ok");
   if (!isTouch) G.toast("Щёлкните по экрану, чтобы управлять взглядом. Справка — H.", "", 6000);
 }
 export function showMenu() {
   G.save(); G.closeModal(); G.selectPart(null); V.inspect = false; VW.setXray(false); VW.paintAll();
   G.uiMode("menu"); $("hud").hidden = true; $("menu").hidden = false; setMode("menu");
-  VW.camTo("all"); VW.orbit.auto = true;
+  VW.camTo("menu"); VW.orbit.auto = true;
   $("bCont").hidden = !G.P;
 }
 function toggleOrbit() {
@@ -150,7 +151,14 @@ document.addEventListener("pointerlockchange", () => {
   if (locked) { G.closeModal(); if (!working) { /* карточка остаётся, пока игрок рядом */ } }
   updateRail();
 });
-function requestLock() { if ((mode === "walk" || mode === "seat") && !isTouch && !document.pointerLockElement) { try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* браузер не разрешил */ } } }
+let lockFailed = false;
+function requestLock() {
+  if ((mode === "walk" || mode === "seat") && !isTouch && !document.pointerLockElement && !lockFailed) {
+    const fail = () => { if (!lockFailed) { lockFailed = true; G.toast("Захват мыши недоступен — осматривайтесь, перетаскивая мышь с зажатой кнопкой.", "", 6000); } };
+    try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(fail); } catch (e) { fail(); }
+  }
+}
+document.addEventListener("pointerlockerror", () => { if (!lockFailed) { lockFailed = true; G.toast("Захват мыши недоступен — осматривайтесь, перетаскивая мышь с зажатой кнопкой.", "", 6000); } });
 function cardOpened() { if (document.pointerLockElement) document.exitPointerLock(); updateRail(); }
 
 /* ═════════════ клавиатура ═════════════ */
@@ -195,11 +203,13 @@ addEventListener("blur", () => keys.clear());
 const ptr = { down: false, x: 0, y: 0, moved: 0, btn: 0, touches: new Map(), pinch: 0 };
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 canvas.addEventListener("mousemove", (e) => { if (locked) { look.dx += e.movementX; look.dy += e.movementY; } });
+/* взгляд перетаскиванием: запасной вариант, если захват мыши недоступен (встроенные фреймы, политика браузера) */
+const drag = { on: false, x: 0, y: 0, moved: 0, id: null };
 canvas.addEventListener("pointerdown", (e) => {
   A.audioUnlock();
   if (mode === "walk" || mode === "seat") {
-    if (!isTouch && !locked && !G.modalOpen()) { requestLock(); return; }
-    if (e.pointerType === "touch") { canvas.setPointerCapture(e.pointerId); ptr.touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); }
+    if (e.pointerType === "touch") { canvas.setPointerCapture(e.pointerId); ptr.touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); return; }
+    if (!locked && !G.modalOpen()) { drag.on = true; drag.x = e.clientX; drag.y = e.clientY; drag.moved = 0; drag.id = e.pointerId; canvas.setPointerCapture(e.pointerId); }
     return;
   }
   if (mode !== "orbit" && mode !== "engine" && mode !== "radar" && mode !== "menu") return;
@@ -208,6 +218,11 @@ canvas.addEventListener("pointerdown", (e) => {
   if (ptr.touches.size === 2) { const [a, b] = [...ptr.touches.values()]; ptr.pinch = Math.hypot(a.x - b.x, a.y - b.y); }
 });
 canvas.addEventListener("pointermove", (e) => {
+  if ((mode === "walk" || mode === "seat") && drag.on && e.pointerId === drag.id) {
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+    if (drag.moved > 3) { look.dx += dx * 1.4; look.dy += dy * 1.4; }
+    return;
+  }
   if (mode === "walk" || mode === "seat") {
     if (e.pointerType === "touch" && ptr.touches.has(e.pointerId)) { const p = ptr.touches.get(e.pointerId); look.dx += (e.clientX - p.x) * 1.6; look.dy += (e.clientY - p.y) * 1.6; ptr.touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); }
     return;
@@ -225,6 +240,7 @@ canvas.addEventListener("pointermove", (e) => {
   } else if (e.pointerType === "mouse" && mode === "orbit") onHover(e);
 });
 const pUp = (e) => {
+  if (drag.on && e.pointerId === drag.id) { drag.on = false; if (drag.moved < 6 && (mode === "walk" || mode === "seat")) requestLock(); return; }
   ptr.touches.delete(e.pointerId);
   if (ptr.touches.size < 2) ptr.pinch = 0;
   if (mode === "walk" || mode === "seat") return;
@@ -424,7 +440,7 @@ function updateMarker(dt) {
 /* ---------- работа с таймером ---------- */
 function doWork(title, kind, hours) {
   return new Promise((res) => {
-    const dur = kind === "visual" ? 0.9 : clamp(0.8 + hours * 0.85, 1.0, 4.2);
+    const dur = window.__fastWork ? 0.05 : kind === "visual" ? 0.9 : clamp(0.8 + hours * 0.85, 1.0, 4.2);
     working = { t: 0, dur, res, kind, cancel: false };
     $("workT").textContent = title; $("workS").textContent = `${hours.toFixed(1)} нормо-ч · Esc — прервать`;
     $("work").hidden = false; $("workBar").style.width = "0";
@@ -556,8 +572,12 @@ function loop(t) {
     } else V.tech.root.visible = false;
     // прицел
     const t2 = aimTarget(); setHoverTarget(t2); promptFor(t2);
-    // закрыть карточку, если игрок ушёл
-    if (G.selected && !$("card").hidden && mode === "walk" && !working) { const b = VW.partBox(G.selected); if (b.distanceToPoint(player.eye) > 6) G.selectPart(null); }
+    // карточка: закрыть, если игрок ушёл; перерисовать, когда узел стал досягаем (или наоборот)
+    if (G.selected && !$("card").hidden && mode === "walk" && !working) {
+      const b = VW.partBox(G.selected), d = b.distanceToPoint(player.eye);
+      if (d > 6) G.selectPart(null);
+      else { const near = d <= REACH + 0.2; if (near !== lastNear) { lastNear = near; G.renderCard(); } }
+    } else lastNear = null;
   } else if (mode === "engine") {
     if (engineView === "cockpit") {
       const eye = V.M.group.localToWorld(V.M.anchors.pilotEye.clone());

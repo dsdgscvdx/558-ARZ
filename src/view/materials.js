@@ -152,7 +152,7 @@ export function buildLibrary(T) {
     brass: S({ color: "#b99552", roughness: 0.3, metalness: 1 }),
     yellowStripe: S({ color: "#e0b020", roughness: 0.5 }),
     black: S({ color: "#101112", roughness: 0.6 }),
-    cockpit: painted("#557f84", 1, { metalness: 0.1 }),       // бирюзовая окраска кабины
+    cockpit: painted("#557f84", 1, { metalness: 0.1, side: THREE.DoubleSide }),       // бирюзовая окраска кабины
     cockpitDark: S({ color: "#1d2224", roughness: 0.7, metalness: 0.1 }),
     seatGreen: S({ color: "#4b5a4a", roughness: 0.85, metalness: 0.05, normalMap: T.fabric.normal }),
     canopy: P({ color: "#ffffff", metalness: 0, roughness: 0.02, roughnessMap: T.smudge, transmission: 1, thickness: 0.012, ior: 1.5,

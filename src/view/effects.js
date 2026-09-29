@@ -16,8 +16,8 @@ const flameFrag = /* glsl */ `
     float t = clamp(-vL.y / uLen, 0.0, 1.0);          // 0 — срез сопла, 1 — конец факела
     float ang = atan(vL.x, vL.z);
     float n = noise(vec2(ang * 2.0, t * 9.0 - uTime * 26.0)) * 0.6 + noise(vec2(ang * 5.0, t * 22.0 - uTime * 41.0)) * 0.4;
-    float fres = pow(abs(dot(normalize(vN), normalize(vV))), 1.1);
-    float along = smoothstep(0.0, 0.03, t) * (1.0 - smoothstep(0.3, 1.0, t));
+    float fres = 0.35 + 0.65 * pow(abs(dot(normalize(vN), normalize(vV))), 0.9);
+    float along = smoothstep(0.0, 0.03, t) * (1.0 - smoothstep(0.25, 1.0, t)) * (1.0 - t * 0.35);
     // скачки уплотнения: периодические яркие зоны
     float diam = 0.0;
     for (int i = 0; i < 6; i++){ float c = 0.09 + float(i) * 0.095; diam += exp(-pow((t - c) * 38.0, 2.0)) * (1.0 - float(i) * 0.14); }
@@ -25,7 +25,7 @@ const flameFrag = /* glsl */ `
     float I = along * (0.55 + 0.45 * n) * fres;
     I += diam * uAB * 1.6 * fres * uLayer;
     I *= mix(0.25, 1.0, uAB) * uPower * (1.0 + uSurge * 1.5 * n);
-    gl_FragColor = vec4(col * I * mix(2.5, 14.0, uAB), 1.0);
+    gl_FragColor = vec4(col * I * mix(2.0, 11.0, uAB) * (0.55 + 0.45 * uLayer), 1.0);
   }`;
 
 export function makeFlame() {
@@ -40,9 +40,9 @@ export function makeFlame() {
     const mesh = new THREE.Mesh(geo, m); mesh.rotation.z = -Math.PI / 2; mesh.frustumCulled = false; g.add(mesh); layers.push({ mesh, len });
     return mesh;
   };
-  mk(0.42, 0.26, 6.5, "#ff9a3a", "#ff5a18", 0.3);      // внешний оранжевый
-  mk(0.36, 0.12, 4.4, "#8fb0ff", "#ffc060", 1.0);      // ядро со скачками уплотнения
-  mk(0.24, 0.03, 2.6, "#ffffff", "#ffd27a", 0.9);      // горячая сердцевина
+  mk(0.44, 0.34, 8.5, "#ffa040", "#ff5a18", 0.3);      // внешний оранжевый
+  mk(0.38, 0.16, 6.0, "#9fbfff", "#ffc060", 1.0);      // ядро со скачками уплотнения
+  mk(0.26, 0.04, 3.4, "#ffffff", "#ffd27a", 0.9);      // горячая сердцевина
   // «бриллианты» — яркие диски скачков уплотнения
   const dm = [];
   for (let i = 0; i < 5; i++) {
