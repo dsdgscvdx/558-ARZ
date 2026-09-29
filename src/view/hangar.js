@@ -419,22 +419,49 @@ export function buildWorld(L, TX, opts = {}) {
       [rbox(0.55, 0.4, 0.4, 0.03, -0.25, 1.55, -0.05), L.greenProp], [place(new THREE.PlaneGeometry(0.4, 0.28), -0.25, 1.56, 0.151), scr, { cast: false }]];
     for (let i = 0; i < 6; i++) kpa.push([cyl(0.025, 0.025, 0.03, "z", 0.15 + (i % 3) * 0.13, 1.1 + Math.floor(i / 3) * 0.18, 0.38, 10), L.black]);
     for (const [x, z] of [[-0.5, -0.3], [0.5, -0.3], [-0.5, 0.3], [0.5, 0.3]]) kpa.push([cyl(0.08, 0.08, 0.05, "z", x, 0.1, z, 12), L.rubber]);
-    kpa.push([tube([[0.55, 1.0, 0], [1.0, 0.1, 0.1], [2.4, 0.05, 0.2], [3.2, 0.9, 0.35], [3.2, 1.7, 0.3]], 0.025, 30, 6), L.wireBlack]);
     P(kpa, 9.2, 2.6, Math.PI);
+    b.add(tube([[8.62, 1.0, 2.6], [8.4, 0.05, 2.4], [7.2, 0.04, 1.4], [6.6, 0.05, 0.7], [6.5, 1.0, 0.5], [6.45, 1.7, 0.3]], 0.025, 40, 6), L.wireBlack, { cast: false });
     spot("kpa", "КПА РЛС — настройка «Топаза»", 9.2, 1.2, 2.6, 1.4, 1.6, 1.0);
   }
   // аэродромный источник питания и гидроустановка
   {
-    const apa = [[rbox(2.4, 1.2, 1.3, 0.05, 0, 0.95, 0), L.greenProp, { collide: true }], [box(2.45, 0.1, 1.35, 0, 0.35, 0), L.darkProp]];
-    for (let i = 0; i < 10; i++) apa.push([box(0.02, 0.5, 0.9, -0.9 + i * 0.12, 1.0, 0.66), L.darkProp]);
-    for (const [x, z] of [[-0.8, -0.7], [0.8, -0.7], [-0.8, 0.7], [0.8, 0.7]]) apa.push([place(new THREE.TorusGeometry(0.22, 0.1, 10, 24), x, 0.3, z), L.tire]);
-    apa.push([tube([[1.2, 0.8, 0.2], [2.0, 0.06, 0.4], [4.5, 0.05, 1.8], [6.4, 0.05, 2.4], [7.3, 0.9, 2.0]], 0.035, 40, 6), L.wireBlack]);
+    const plate = (lines, w = 512, h = 320, bg = "#20282c") => {
+      const c = T.canvas(w, h), g = c.getContext("2d"); g.fillStyle = bg; g.fillRect(0, 0, w, h);
+      g.strokeStyle = "#8a959a"; g.lineWidth = 6; g.strokeRect(8, 8, w - 16, h - 16);
+      for (let i = 0; i < 3; i++) { const x = 90 + i * 165, y = 120; g.fillStyle = "#0f1214"; g.beginPath(); g.arc(x, y, 58, 0, 7); g.fill(); g.strokeStyle = "#dfe3e0"; g.lineWidth = 3;
+        for (let k = 0; k <= 10; k++) { const a = Math.PI * 0.8 + (k / 10) * Math.PI * 1.4; g.beginPath(); g.moveTo(x + Math.cos(a) * 40, y + Math.sin(a) * 40); g.lineTo(x + Math.cos(a) * 52, y + Math.sin(a) * 52); g.stroke(); }
+        const a = Math.PI * (1.1 + i * 0.35); g.strokeStyle = "#ff5a3a"; g.lineWidth = 4; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * 46, y + Math.sin(a) * 46); g.stroke(); }
+      g.fillStyle = "#e8e2c8"; g.font = "bold 30px Arial"; lines.forEach((t, i) => g.fillText(t, 30, 230 + i * 38));
+      for (let i = 0; i < 6; i++) { g.fillStyle = i % 2 ? "#c62828" : "#2e7d32"; g.beginPath(); g.arc(300 + i * 36, 222, 11, 0, 7); g.fill(); }
+      return new THREE.MeshStandardMaterial({ map: T.texFromCanvas(c), roughness: 0.55 });
+    };
+    const warn = new THREE.MeshStandardMaterial({ map: T.texFromCanvas(T.textPlate([["ОСТОРОЖНО! ~115 В 400 Гц, =27 В", 44, "#111"]], { w: 1024, h: 128, bg: "#e8b21a", fg: "#111", flag: false, align: "center" })), roughness: 0.6 });
+    const stripe = new THREE.MeshStandardMaterial({ map: T.texFromCanvas(stripeCanvas("#e0b020", "#1a1a1a", 256, 64)), roughness: 0.6 });
+    const wheels = (list, R = 0.26, w = 0.18) => list.flatMap(([x, z]) => [[place(new THREE.TorusGeometry(R * 0.72, R * 0.3, 10, 24), x, R, z), L.tire], [cyl(R * 0.5, R * 0.5, w * 0.9, "z", x, R, z, 16), L.greyProp]]);
+    // АПА (прицеп): рама, кожух, жалюзи, щит управления, барабан кабеля, дышло
+    const apa = [[rbox(2.5, 1.15, 1.35, 0.06, 0, 1.0, 0), L.greenProp, { collide: true }], [box(2.7, 0.12, 1.2, 0, 0.47, 0), L.darkProp], [box(2.52, 0.06, 1.37, 0, 1.6, 0), L.greenProp]];
+    for (const zz of [0.685, -0.685]) for (let i = 0; i < 12; i++) apa.push([box(0.035, 0.42, 0.02, -1.0 + i * 0.075, 1.05, zz, 0.5, 0, 0), L.darkProp]);
+    apa.push([place(new THREE.PlaneGeometry(0.9, 0.56), -1.255, 1.05, 0, 0, -Math.PI / 2, 0), plate(["АПА-5Д", "ВКЛ   ГЕНЕРАТОР"]), { cast: false }]);
+    apa.push([place(new THREE.PlaneGeometry(1.2, 0.15), 0.5, 1.45, 0.688), warn, { cast: false }]);
+    apa.push([cyl(0.36, 0.36, 0.08, "z", 0.85, 1.05, 0.78, 24), L.redDark], [cyl(0.36, 0.36, 0.08, "z", 0.85, 1.05, 1.08, 24), L.redDark], [cyl(0.25, 0.25, 0.3, "z", 0.85, 1.05, 0.93, 24), L.wireBlack]);
+    apa.push([box(1.3, 0.07, 0.07, 1.95, 0.45, 0), stripe], [torus(0.08, 0.018, "y", 2.62, 0.45, 0, 6, 16), L.steelDark]);
+    apa.push(...wheels([[-0.8, -0.72], [0.8, -0.72], [-0.8, 0.72], [0.8, 0.72]]));
+    for (const [x, z] of [[-1.26, 0.55], [-1.26, -0.55]]) apa.push([box(0.02, 0.06, 0.12, x, 0.6, z), L.navRed]);
     P(apa, -6.5, -6.0, 0.3);
-    const upg = [[rbox(1.6, 1.1, 0.9, 0.04, 0, 0.8, 0), L.blueGrey, { collide: true }], [box(1.0, 0.3, 0.02, 0, 1.0, 0.46), L.black]];
-    for (let i = 0; i < 3; i++) upg.push([cyl(0.05, 0.05, 0.02, "z", -0.3 + i * 0.3, 1.0, 0.47, 16), L.whiteProp]);
-    for (const [x, z] of [[-0.6, -0.35], [0.6, -0.35], [-0.6, 0.35], [0.6, 0.35]]) upg.push([cyl(0.1, 0.1, 0.06, "z", x, 0.1, z, 12), L.rubber]);
-    upg.push([tube([[0.8, 0.7, 0.2], [1.6, 0.05, 0.6], [3.0, 0.05, 1.5], [3.8, 0.4, 2.8], [4.0, 1.6, 3.2]], 0.02, 30, 6), L.hose]);
+    // УПГ: корпус, манометры, два барабана со шлангами, ручка
+    const upg = [[rbox(1.6, 1.0, 0.9, 0.04, 0, 0.72, 0), L.blueGrey, { collide: true }], [place(new THREE.PlaneGeometry(0.9, 0.56), 0, 0.85, 0.456), plate(["УПГ-300", "ДАВЛЕНИЕ"]), { cast: false }]];
+    upg.push([cyl(0.22, 0.22, 0.06, "x", -0.45, 1.42, 0, 20), L.redDark], [cyl(0.22, 0.22, 0.06, "x", -0.15, 1.42, 0, 20), L.redDark], [cyl(0.15, 0.15, 0.3, "x", -0.3, 1.42, 0, 20), L.hose]);
+    upg.push([cyl(0.22, 0.22, 0.06, "x", 0.15, 1.42, 0, 20), L.blueGrey], [cyl(0.22, 0.22, 0.06, "x", 0.45, 1.42, 0, 20), L.blueGrey], [cyl(0.15, 0.15, 0.3, "x", 0.3, 1.42, 0, 20), L.hose]);
+    upg.push([tube([[-0.85, 0.5, -0.35], [-1.15, 1.1, -0.35], [-1.15, 1.1, 0.35], [-0.85, 0.5, 0.35]], 0.018, 16, 6), L.chrome]);
+    for (const [x, z] of [[-0.6, -0.35], [0.6, -0.35], [-0.6, 0.35], [0.6, 0.35]]) upg.push([cyl(0.1, 0.1, 0.06, "z", x, 0.1, z, 12), L.rubber], [box(0.06, 0.12, 0.06, x, 0.2, z), L.darkProp]);
     P(upg, -4.2, 5.5, -2.2);
+    // кабель питания и гидрошланги — в мировых координатах, к разъёмам самолёта
+    const wpt = (x, z, ry, lx, ly, lz) => [x + lx * Math.cos(ry) + lz * Math.sin(ry), ly, z - lx * Math.sin(ry) + lz * Math.cos(ry)];
+    const a0 = wpt(-6.5, -6.0, 0.3, 0.85, 1.05, 0.95);
+    b.add(tube([a0, [a0[0] + 0.3, 0.05, a0[2] + 0.6], [-2.5, 0.04, -4.2], [0.8, 0.04, -2.1], [2.0, 0.05, -1.3], [2.25, 0.9, -0.95], [2.3, 1.55, -0.66]], 0.03, 60, 6), L.wireBlack, { cast: false });
+    const u0 = wpt(-4.2, 5.5, -2.2, -0.3, 1.42, 0.12), u1 = wpt(-4.2, 5.5, -2.2, 0.3, 1.42, 0.12);
+    b.add(tube([u0, [u0[0] + 0.2, 0.05, u0[2] - 0.3], [-2.4, 0.04, 3.2], [-0.9, 0.04, 1.3], [-0.7, 0.9, 0.45], [-0.6, 1.72, 0.28]], 0.02, 50, 6), L.hose, { cast: false });
+    b.add(tube([u1, [u1[0] + 0.3, 0.05, u1[2] - 0.2], [-2.0, 0.04, 3.0], [-0.4, 0.04, 1.1], [-0.35, 0.9, 0.4], [-0.3, 1.72, 0.2]], 0.02, 50, 6), L.hose, { cast: false });
     // баллоны азота
     const n2 = [[box(0.7, 0.05, 0.5, 0, 0.1, 0), L.darkProp]];
     for (let i = 0; i < 3; i++) n2.push([cyl(0.11, 0.11, 1.5, "y", -0.22 + i * 0.22, 0.85, 0, 16), L.blackCyl || L.black], [sphere(0.11, -0.22 + i * 0.22, 1.6, 0, 1, 0.6, 1), L.blackCyl || L.black], [cyl(0.03, 0.03, 0.1, "y", -0.22 + i * 0.22, 1.7, 0, 8), L.brass]);
@@ -538,6 +565,27 @@ export function buildWorld(L, TX, opts = {}) {
     spot("stock", "Тележка со снятыми агрегатами (склад)", cx, 0.9, cz, 2.6, 1.2, 1.4);
   }
 
+  /* ---------- эвакуационные выходы, часы ---------- */
+  {
+    const exitTex = T.texFromCanvas(T.textPlate([["ВЫХОД", 110, "#ffffff"]], { w: 512, h: 160, bg: "#1f8f3f", flag: false, align: "center" }));
+    const exitMat = new THREE.MeshStandardMaterial({ map: exitTex, emissiveMap: exitTex, emissive: "#ffffff", emissiveIntensity: 2.2, roughness: 0.4 });
+    const doorMat = new THREE.MeshStandardMaterial({ color: "#6f7a80", roughness: 0.5, metalness: 0.5, normalMap: TX.paintedMetal.normal, normalScale: new THREE.Vector2(0.4, 0.4) });
+    for (const [x, s2] of [[-15, -1], [15, 1], [-24, 1]]) {
+      const zf = s2 * (Z - 0.16), ry = s2 > 0 ? Math.PI : 0;
+      const g = [[box(1.25, 2.25, 0.1, 0, 1.12, 0), frameMat], [box(1.05, 2.1, 0.06, 0, 1.06, 0.03), doorMat], [box(0.8, 0.05, 0.06, 0, 1.05, 0.08), L.chrome],
+        [box(0.5, 0.18, 0.08, 0, 2.55, 0.02), exitMat], [box(0.12, 0.16, 0.06, 0.8, 1.45, 0.02), L.red]];
+      P(g, x, zf, ry);
+    }
+    const ck = T.canvas(256, 256), cg = ck.getContext("2d");
+    cg.fillStyle = "#f2f0ea"; cg.beginPath(); cg.arc(128, 128, 124, 0, 7); cg.fill(); cg.strokeStyle = "#222"; cg.lineWidth = 8; cg.stroke();
+    cg.fillStyle = "#111"; for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; cg.fillRect(128 + Math.cos(a) * 100 - 4, 128 + Math.sin(a) * 100 - 8, 8, 16); }
+    cg.lineCap = "round"; cg.lineWidth = 10; cg.beginPath(); cg.moveTo(128, 128); cg.lineTo(128 + Math.cos(-2.2) * 60, 128 + Math.sin(-2.2) * 60); cg.stroke();
+    cg.lineWidth = 6; cg.beginPath(); cg.moveTo(128, 128); cg.lineTo(128 + Math.cos(0.9) * 92, 128 + Math.sin(0.9) * 92); cg.stroke();
+    const clock = new THREE.Mesh(new THREE.CircleGeometry(0.45, 40), new THREE.MeshStandardMaterial({ map: T.texFromCanvas(ck), roughness: 0.3 }));
+    clock.position.set(-7.5, 4.6, -Z + 0.18); hangar.add(clock);
+    b.add(torus(0.46, 0.03, "z", -7.5, 4.6, -Z + 0.2, 6, 40), L.darkProp, { cast: false });
+  }
+
   /* ---------- надписи и флаг ---------- */
   {
     const sign = new THREE.MeshStandardMaterial({ map: T.texFromCanvas(T.textPlate([["558 АВИАЦИОННЫЙ РЕМОНТНЫЙ ЗАВОД", 64], ["ремонтный цех · г. Барановичи", 40, "#c9d2d6"]])), roughness: 0.5, emissive: "#fff", emissiveIntensity: 0.05 });
@@ -572,10 +620,14 @@ export function buildWorld(L, TX, opts = {}) {
     for (let x = H.x1 + 1; x < PAD.x - 4; x += 3) pl.push(place(new THREE.PlaneGeometry(1.8, 0.2), x + 0.9, 0.0, 0, -Math.PI / 2, 0, 0));
     pl.push(place(new THREE.RingGeometry(9.5, 9.7, 64), PAD.x, 0.0, 0, -Math.PI / 2, 0, 0));
     outside.add(new THREE.Mesh(mergeAll(pl), pm));
-    // газоотбойник
+    // газоотбойник: наклонные стальные ламели на раме, бетонные фундаменты
     const defl = new THREE.Group(); defl.position.set(PAD.x + 17, 0, 0);
-    const dm = mergeAll([box(0.4, 5.5, 18, 0, 2.2, 0, 0, 0, -0.45), ...Array.from({ length: 8 }, (_, i) => box(2.6, 0.2, 0.3, 1.0, 1.2, -8 + i * 2.3, 0, 0, 0.9))]);
-    const dmesh = new THREE.Mesh(dm, L.greyProp); dmesh.castShadow = dmesh.receiveShadow = true; defl.add(dmesh); outside.add(defl);
+    const dl = [], df = [], dc = [];
+    for (let i = 0; i < 9; i++) dl.push(box(0.9, 0.08, 18, -0.2 + i * 0.28, 0.6 + i * 0.52, 0, 0, 0, -0.62));
+    for (let z = -9; z <= 9; z += 3) { df.push(box(0.2, 5.2, 0.2, 2.3, 2.6, z), box(0.18, 6.2, 0.18, 0.8, 2.6, z, 0, 0, -0.5)); dc.push(box(3.4, 0.4, 0.8, 1.2, 0.2, z)); }
+    const dmesh = new THREE.Mesh(mergeAll(dl), L.greyProp), fmesh = new THREE.Mesh(mergeAll(df), L.darkProp), cmesh = new THREE.Mesh(mergeAll(dc), L.concreteWall);
+    for (const m of [dmesh, fmesh, cmesh]) { m.castShadow = m.receiveShadow = true; defl.add(m); }
+    outside.add(defl);
     bo.colliders.push(box(3, 5, 18, PAD.x + 17.5, 2.5, 0));
     // пожарная машина
     const truck = new THREE.Group(); truck.position.set(PAD.x - 8, 0, -16); truck.rotation.y = 0.5;
