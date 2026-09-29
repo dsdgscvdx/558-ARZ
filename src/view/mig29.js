@@ -12,6 +12,7 @@ import { buildCockpit, buildSeat } from "./cockpit.js";
 import { buildCanopy } from "./canopy.js";
 import { buildMainGear, buildNoseGear } from "./gear.js";
 import { buildDetails, perforatedMaterial, removeFlagMaterial, streamer, stabDischargers } from "./details.js";
+import { engineBay, engineDressing, radarUnits, avBayUnits, hydroBayUnits } from "./bays.js";
 
 const TAU = Math.PI * 2;
 const angIn = (t, a, b) => { const d = (((t - a) % TAU) + TAU) % TAU; return d <= b - a + 1e-6; };
@@ -113,23 +114,12 @@ export function buildMig29(L, { detail = 1 } = {}) {
     part("pitot", pit, V(1.2, 0.15, 0), { noShadow: true });
   }
 
-  /* ═══════════ РЛС «Топаз»: антенна с приводом, ВЧ-блок ═══════════ */
+  /* ═══════════ РЛС «Топаз»: антенна с приводом, ВЧ-блок, шпангоут ═══════════ */
   {
-    const f = 0.42 * 0.42 / (4 * 0.14), prof = [];
-    for (let i = 0; i <= 10; i++) { const r = (0.42 * i) / 10; prof.push([6.78 + (r * r) / (4 * f), r]); }
-    const dish = latheX(prof, 40, { cy: 2.06 });
-    const sub = mergeAll([cyl(0.07, 0.07, 0.015, "x", 7.08, 2.06, 0, 20), ...[0, 1, 2].map((k) => {
-      const a = (k / 3) * TAU; return tube([[6.9, 2.06 + Math.cos(a) * 0.4, Math.sin(a) * 0.4], [7.08, 2.06 + Math.cos(a) * 0.06, Math.sin(a) * 0.06]], 0.006, 4, 4);
-    })]);
-    const gimbal = mergeAll([
-      cyl(0.09, 0.09, 0.22, "x", 6.62, 2.06, 0, 16), box(0.08, 0.5, 0.06, 6.55, 2.06, 0.2), box(0.08, 0.5, 0.06, 6.55, 2.06, -0.2),
-      cyl(0.07, 0.07, 0.12, "z", 6.55, 2.28, 0.2, 14), cyl(0.07, 0.07, 0.12, "z", 6.55, 2.28, -0.2, 14), box(0.1, 0.06, 0.46, 6.55, 1.82, 0),
-    ]);
-    part("radar_drive", [[dish, L.aluDS], [sub, L.aluDark], [gimbal, L.unitGrey]], V(1.3, 0.5, 0));
-    const hf = mergeAll([rbox(0.34, 0.24, 0.5, 0.02, 6.44, 1.72, 0), box(0.06, 0.05, 0.3, 6.62, 1.86, 0.1, 0.4, 0, 0), box(0.2, 0.05, 0.05, 6.5, 1.92, -0.12)]);
-    const hfConn = mergeAll([cyl(0.02, 0.02, 0.05, "x", 6.62, 1.72, 0.15, 10), cyl(0.02, 0.02, 0.05, "x", 6.62, 1.72, -0.15, 10), cyl(0.02, 0.02, 0.05, "x", 6.62, 1.66, 0, 10)]);
-    part("radar_hf", [[hf, L.unitGrey], [hfConn, L.brass]], V(1.4, -0.35, 0));
-    air(mergeAll([cyl(0.03, 0.03, 0.2, "x", 6.4, 2.3, 0.25, 8), box(0.12, 0.3, 0.08, 6.36, 2.1, -0.3)]), L.primerGrey);
+    const R = radarUnits(L);
+    part("radar_drive", R.drive, V(1.3, 0.5, 0));
+    part("radar_hf", R.hf, V(1.4, -0.35, 0));
+    air(R.staticGeo.bh, R.staticGeo.bhMat); air(R.staticGeo.brackets, L.primerGrey); air(R.staticGeo.cables, L.wireBlack);
   }
 
   /* ═══════════ кабина и кресло К-36ДМ (узел «пиропатроны кресла») ═══════════ */
@@ -154,7 +144,8 @@ export function buildMig29(L, { detail = 1 } = {}) {
     const bat = mergeAll([rbox(0.3, 0.17, 0.22, 0.015, 1.5, 2.55, 0.18)]);
     const term = mergeAll([cyl(0.015, 0.015, 0.03, "y", 1.42, 2.65, 0.14, 8), cyl(0.015, 0.015, 0.03, "y", 1.58, 2.65, 0.14, 8), box(0.02, 0.02, 0.2, 1.5, 2.645, 0.18)]);
     part("battery", [[bat, L.battery], [term, L.brass]], V(0, 0.7, 0.3));
-    air(mergeAll([rbox(0.26, 0.2, 0.2, 0.01, 1.85, 2.56, -0.02), rbox(0.2, 0.16, 0.14, 0.01, 1.35, 2.54, -0.16)]), L.unitGrey);
+    const U = avBayUnits();
+    air(U.bodies, L.unitGrey); air(U.handles, L.black); air(U.conns, L.brass); air(U.shelf, L.primerGrey); air(U.cab, L.wireBlack);
   }
 
   /* ═══════════ бак №3: люк-лаз, уплотнения, топливопровод ═══════════ */
@@ -189,6 +180,8 @@ export function buildMig29(L, { detail = 1 } = {}) {
     }
     part("hydro_hoses", [[mergeAll(hoses), L.hose]], V(0, -0.8, 0));
     air(mergeAll([cyl(0.04, 0.04, 0.25, "z", -1.0, 1.95, 0.1, 10), box(0.2, 0.12, 0.15, 0.0, 1.98, -0.2)]), L.unitGrey);
+    const HB = hydroBayUnits();
+    air(HB.acc, L.gearPaint); air(HB.pump, L.unitGrey); air(HB.pipes, L.steel);
   }
 
   /* ═══════════ ниша носовой стойки и носовая опора ═══════════ */
@@ -204,10 +197,14 @@ export function buildMig29(L, { detail = 1 } = {}) {
   });
   const nacGeo = { R: nacR, L: mirrorZ(nacR) };
   air(nacGeo.R, L.paint, { collide: true }); air(nacGeo.L, L.paint, { collide: true });
-  // внутренняя обшивка отсека двигателя
-  const liner = gridSurface((x, t) => { const p = NAC(x); const q = { ...p, w: p.w - 0.02, ht: p.ht - 0.02, hb: p.hb - 0.02 }; const [y, z] = sePoint(q, t); return [x, y, z]; },
-    range(COWL.x0 - 0.05, COWL.x1 + 0.05, 20), nth, { closedV: true, flip: true });
-  air(liner, L.primer); air(mirrorZ(liner), L.primer);
+  // двигательный отсек изнутри: обшивка, шпангоуты, подвеска, жгуты, трубопроводы
+  {
+    const B = engineBay();
+    for (const mz of [(g) => g, mirrorZ]) {
+      air(mz(B.liner), L.primer); air(mz(B.frames), L.primerGrey); air(mz(B.mounts), L.steelDark);
+      air(mz(B.harness), L.wireBlack); air(mz(B.pipes), L.steel); air(mz(B.clamps), L.steelDark);
+    }
+  }
   // канал воздухозаборника, губа, створка защиты от посторонних предметов
   {
     const inset = 0.016;                                            // острая кромка воздухозаборника
@@ -243,12 +240,13 @@ export function buildMig29(L, { detail = 1 } = {}) {
     const comp = latheX(compProf.map(([x, r]) => [x, r]), 40, { cy: cyE, cz: cz(-0.7) });
     const compPipes = mergeAll([tube([[0.0, cyE + 0.2, cz(0) + 0.33], [-0.5, cyE + 0.25, cz(-0.5) + 0.36], [-1.2, cyE + 0.15, cz(-1.2) + 0.37]], 0.02, 20, 6),
       tube([[-0.1, cyE - 0.3, cz(0) + 0.2], [-0.8, cyE - 0.33, cz(-0.8) + 0.22], [-1.3, cyE - 0.3, cz(-1.3) + 0.25]], 0.016, 20, 6)]);
-    part("comp_" + S, [[mz(comp), L.alu], [mz(compPipes), L.steel]], V(0, -0.9, 0.9 * s));
+    const dress = engineDressing(cyE, cz);
+    part("comp_" + S, [[mz(comp), L.engineAlu], [mz(compPipes), L.steel], [mz(dress.comp), L.steelDark]], V(0, -0.9, 0.9 * s));
     // камера сгорания и турбина
     const turbProf = [[-1.45, 0.39], [-1.5, 0.42], [-1.9, 0.43], [-1.93, 0.45], [-1.97, 0.45], [-2.0, 0.43], [-2.6, 0.42], [-2.63, 0.44], [-2.68, 0.44], [-2.7, 0.41], [-3.2, 0.39], [-3.25, 0.36]];
     const turb = latheX(turbProf, 40, { cy: cyE, cz: cz(-2.3) });
     const inj = mergeAll(Array.from({ length: 10 }, (_, k) => { const a = (k / 10) * TAU; return cyl(0.018, 0.018, 0.08, "x", -1.75, cyE + Math.cos(a) * 0.45, cz(-1.75) + Math.sin(a) * 0.45, 6); }));
-    part("turb_" + S, [[mz(turb), L.burnt], [mz(inj), L.bronze]], V(0, -0.9, 0.9 * s));
+    part("turb_" + S, [[mz(turb), L.burnt], [mz(inj), L.bronze], [mz(dress.turb), L.steel]], V(0, -0.9, 0.9 * s));
     // агрегаты на коробке приводов
     part("reg_" + S, [[mz(mergeAll([rbox(0.42, 0.15, 0.24, 0.02, -0.25, 1.2, cz(-0.25) - 0.06), cyl(0.03, 0.03, 0.1, "y", -0.12, 1.3, cz(-0.12) + 0.02, 8)])), L.olive]], V(0, -0.6, 0.5 * s));
     part("oilpump_" + S, [[mz(mergeAll([rbox(0.26, 0.13, 0.2, 0.02, -0.85, 1.2, cz(-0.85) - 0.05), cyl(0.04, 0.04, 0.06, "z", -0.85, 1.2, cz(-0.85) + 0.08, 12)])), L.unitGrey]], V(0, -0.6, 0.5 * s));
