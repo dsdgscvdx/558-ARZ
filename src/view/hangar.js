@@ -610,8 +610,13 @@ export function buildWorld(L, TX, opts = {}) {
     { const g = apron.geometry, uv = g.attributes.uv, p = g.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, p.getX(i), -p.getY(i)); }
     apron.rotation.x = -Math.PI / 2; apron.position.set(H.x1 + 85, -0.01, 0); apron.receiveShadow = true; outside.add(apron);
     // грунт с травой
-    const gt = TX.grass; gt.repeat.set(60, 60);
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshStandardMaterial({ map: gt, roughness: 1, color: "#9aa58a" }));
+    // в грунте вырезано пятно под ангаром и перроном: иначе на больших треугольниках
+    // трава «пробивает» бетон по глубине (особенно без MSAA)
+    const gt = TX.grass; gt.repeat.set(60 / 1400, 60 / 1400);
+    const gs = new THREE.Shape([[-700, -700], [700, -700], [700, 700], [-700, 700]].map(([x, y]) => new THREE.Vector2(x, y)));
+    const hx0 = H.x0 - 0.5 + 0.1, hx1 = H.x1 - 0.1, hz = H.z + 0.5 - 0.1, ax1 = H.x1 + 170 - 0.1, az = 60 - 0.1;
+    gs.holes.push(new THREE.Path([[hx0, -hz], [hx1, -hz], [hx1, -az], [ax1, -az], [ax1, az], [hx1, az], [hx1, hz], [hx0, hz]].map(([x, y]) => new THREE.Vector2(x, y))));
+    const ground = new THREE.Mesh(new THREE.ShapeGeometry(gs), new THREE.MeshStandardMaterial({ map: gt, roughness: 1, color: "#9aa58a" }));
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05; ground.receiveShadow = true; outside.add(ground);
     bo.colliders.push(box(170, 0.2, 120, H.x1 + 85, -0.1, 0));
     // разметка перрона

@@ -21,6 +21,14 @@ async function assemble(jsText) {
   await mkdir(resolve(root, "dist"), { recursive: true });
   const out = dev ? "dist/dev.html" : "dist/index.html";   // отладочная сборка не попадает в репозиторий
   await writeFile(resolve(root, out), html);
+  if (!dev) {
+    // вариант для публикации артефактом: оболочку <!doctype>/<html>/<head>/<body> добавляет площадка
+    const art = html
+      .replace(/<!doctype html>\s*/i, "").replace(/<html[^>]*>/i, "").replace(/<\/html>\s*$/i, "")
+      .replace(/<head>/i, "").replace(/<\/head>/i, "").replace(/<body>/i, "").replace(/<\/body>/i, "")
+      .replace(/<meta charset="utf-8">/i, "").replace(/<meta name="viewport"[^>]*>/i, "");
+    await writeFile(resolve(root, "dist/artifact.html"), art.trimStart());
+  }
   const kb = (Buffer.byteLength(html) / 1024).toFixed(0);
   console.log(`${out} — ${kb} KB${dev ? " (dev)" : ""}`);
 }

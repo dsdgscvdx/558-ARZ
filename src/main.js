@@ -41,7 +41,7 @@ let locked = false;
 let lastT = 0, fpsAcc = 0, fpsN = 0;
 
 /* ═════════════ загрузка ═════════════ */
-async function boot() {
+async function boot(hotData) {
   const setP = (k, t) => { $("loadBar").style.width = Math.round(k * 100) + "%"; $("loadingT").textContent = t; };
   try {
     const probe = new THREE.WebGLRenderer({ canvas: document.createElement("canvas") });
@@ -68,7 +68,7 @@ async function boot() {
   });
   A.setVolume(settings.volume);
   $("loading").hidden = true;
-  const sv = G.loadSave();
+  const sv = hotData && hotData.P ? hotData : G.loadSave();
   if (sv) { G.applySave(sv); $("bCont").hidden = false; $("pName").value = G.P.name; }
   $("bNew").disabled = false;
   $("bNew").onclick = async () => {
@@ -612,5 +612,9 @@ function loop(t) {
   if (settings.fps) { fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { $("fps").textContent = `${Math.round(fpsN / fpsAcc)} FPS · ${QUALITY[V.R.qKey].name}`; fpsAcc = 0; fpsN = 0; } }
 }
 
-boot().catch((e) => { console.error(e); $("loadingT").textContent = "Ошибка загрузки: " + e.message; });
+/* горячее обновление в просмотрщике артефактов: состояние игры переживает републикацию */
+const hot = window.claude && window.claude.hot;
+if (hot && typeof hot.snapshot === "function") hot.snapshot(() => ({ P: G.P, S: G.S }));
+const run = (data) => boot(data).catch((e) => { console.error(e); $("loadingT").textContent = "Ошибка загрузки: " + e.message; });
+if (hot && hot.ready) hot.ready(run); else run((hot && hot.data) || {});
 void PT; void ST;
