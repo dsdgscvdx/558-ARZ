@@ -10,6 +10,8 @@ import { CORE, CORE_X0, CORE_X1, NAC, NAC_X0, NAC_X1, INTAKE_SLOPE, WING_SECTION
 import { cloneMat } from "./materials.js";
 import { buildCockpit, buildSeat } from "./cockpit.js";
 import { buildCanopy } from "./canopy.js";
+import { buildMainGear, buildNoseGear } from "./gear.js";
+import { buildDetails, perforatedMaterial, removeFlagMaterial, streamer, stabDischargers } from "./details.js";
 
 const TAU = Math.PI * 2;
 const angIn = (t, a, b) => { const d = (((t - a) % TAU) + TAU) % TAU; return d <= b - a + 1e-6; };
@@ -70,6 +72,7 @@ export function buildMig29(L, { detail = 1 } = {}) {
     return g;
   };
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const flagMat = removeFlagMaterial(), redCloth = new THREE.MeshStandardMaterial({ color: "#b51c17", roughness: 0.85, metalness: 0 });
   const seg = Math.round(24 * detail);
 
   /* ═══════════ фюзеляж ═══════════ */
@@ -103,6 +106,9 @@ export function buildMig29(L, { detail = 1 } = {}) {
       [mergeAll([cyl(0.034, 0.02, 1.15, "x", 8.85, 1.96, 0, 12), cyl(0.022, 0.022, 0.16, "x", 9.5, 1.96, 0, 10), cyl(0.012, 0.012, 0.05, "x", 9.605, 1.96, 0, 8)]), L.steel],
       [mergeAll([box(0.06, 0.004, 0.05, 8.72, 1.96, 0.045, 0, 0, 0), box(0.06, 0.05, 0.004, 8.72, 2.0, 0, 0, 0, 0)]), L.black],
       [cyl(0.036, 0.036, 0.06, "x", 8.29, 1.96, 0, 12), L.steelDark],
+      // чехол ПВД с красной лентой (самолёт на стоянке)
+      [mergeAll([cyl(0.03, 0.03, 0.24, "x", 9.53, 1.96, 0, 12), sphere(0.03, 9.65, 1.96, 0, 0.6, 1, 1, 12, 8)]), redCloth],
+      [streamer([9.47, 1.935, 0.0], 0.3, 0.034, 0.25), flagMat],
     ];
     part("pitot", pit, V(1.2, 0.15, 0), { noShadow: true });
   }
@@ -178,38 +184,16 @@ export function buildMig29(L, { detail = 1 } = {}) {
     for (const s of [1, -1]) {
       hoses.push(tube([[-0.2, 1.9, -0.08], [0.0, 1.95, 0.25 * s], [-0.3, 2.0, 0.34 * s], [-0.6, 2.02, 0.4 * s]], 0.018, 20, 6));
       // тормозная магистраль по стойке
-      const gz = GEAR.main.legZ * s;
-      hoses.push(tube([[-0.62, 2.04, gz - 0.06 * s], [-0.64, 1.6, gz - 0.07 * s], [-0.66, 1.1, gz - 0.07 * s], [-0.7, 0.62, gz - 0.09 * s], [-0.72, 0.5, (GEAR.main.z + 0.06) * s]], 0.011, 30, 6));
+      const lz = GEAR.main.legZ;
+      hoses.push(tube([[-0.62, 2.04, s * (lz - 0.14)], [-0.83, 1.95, s * (lz - 0.1)], [-0.84, 1.5, s * (lz - 0.1)], [-0.84, 1.0, s * (lz - 0.1)], [-0.76, 0.76, s * (lz - 0.12)], [-0.63, 0.64, s * lz]], 0.011, 40, 6));
     }
     part("hydro_hoses", [[mergeAll(hoses), L.hose]], V(0, -0.8, 0));
     air(mergeAll([cyl(0.04, 0.04, 0.25, "z", -1.0, 1.95, 0.1, 10), box(0.2, 0.12, 0.15, 0.0, 1.98, -0.2)]), L.unitGrey);
   }
 
-  /* ═══════════ ниша носовой стойки и носовая стойка ═══════════ */
-  {
-    const h = HOLES.nosegear, gx = GEAR.nose.x, r = GEAR.nose.r;
-    air(bayFromHole(CORE, h, 1.98, 8), L.bay);
-    const leg = mergeAll([cyl(0.058, 0.058, 1.1, "y", gx + 0.05, 1.4, 0, 14), cyl(0.07, 0.07, 0.1, "y", gx + 0.05, 1.93, 0, 14),
-      box(0.12, 0.08, 0.3, gx + 0.05, 1.92, 0), box(0.4, 0.05, 0.05, gx + 0.25, 1.6, 0, 0, 0, 0.9)]);
-    air(leg, L.gearPaint, { collide: true });
-    air(cyl(0.045, 0.045, 0.55, "y", gx + 0.04, 0.65, 0, 14), L.chrome);
-    air(mergeAll([box(0.14, 0.06, 0.09, gx, r + 0.07, 0), cyl(0.028, 0.028, 0.44, "z", gx, r, 0, 10),
-      box(0.16, 0.03, 0.08, gx + 0.1, 0.62, 0.05, 0, 0, -0.6), box(0.16, 0.03, 0.08, gx + 0.1, 0.5, 0.05, 0, 0, 0.6)]), L.gearPaint);
-    // грязезащитный щиток за колёсами
-    air(gridSurface((a, zz) => [gx - 0.12 - Math.sin(a) * 0.36, r + Math.cos(a) * 0.36, zz], range(-0.3, 1.25, 10), [-0.24, 0.24]), L.gearPaintD || L.gearPaint);
-    for (const dz of [GEAR.nose.dz, -GEAR.nose.dz]) {
-      air(place(lathed(r, GEAR.nose.w), gx, r, dz), L.tire);
-      air(place(hubGeo(0.17, GEAR.nose.w + 0.01), gx, r, dz), L.aluDark);
-    }
-    // створки ниши
-    for (const s of [1, -1]) {
-      const z = s * 0.3;
-      air(box(1.2, 0.5, 0.012, (h.x0 + h.x1) / 2, 1.3, z, 0, 0, 0), L.paintDouble);
-    }
-    // фары
-    air(mergeAll([cyl(0.045, 0.05, 0.06, "x", gx + 0.12, 1.12, 0.07, 14), cyl(0.045, 0.05, 0.06, "x", gx + 0.12, 1.12, -0.07, 14)]), L.chrome);
-    colliders.push(cyl(0.3, 0.3, 0.7, "y", gx, 0.35, 0, 10));
-  }
+  /* ═══════════ ниша носовой стойки и носовая опора ═══════════ */
+  air(bayFromHole(CORE, HOLES.nosegear, 1.98, 8), L.bay);
+  buildNoseGear({ air, L, colliders, flagMat, redCloth });
 
   /* ═══════════ мотогондолы, воздухозаборники, капоты, двигатели РД-33, сопла ═══════════ */
   const nxs = range(NAC_X0, NAC_X1, Math.round(90 * detail), [COWL.x0, COWL.x1]);
@@ -226,14 +210,14 @@ export function buildMig29(L, { detail = 1 } = {}) {
   air(liner, L.primer); air(mirrorZ(liner), L.primer);
   // канал воздухозаборника, губа, створка защиты от посторонних предметов
   {
-    const inset = 0.035;
+    const inset = 0.016;                                            // острая кромка воздухозаборника
     const inPt = (x, t) => { const p = NAC(Math.min(x, NAC_X0)); const q = { ...p, w: p.w - inset, ht: p.ht - inset, hb: p.hb - inset }; const [y, z] = sePoint(q, t); const f = Math.max(0, Math.min(1, (x - 1.55) / (NAC_X0 - 1.55))); return [x + INTAKE_SLOPE * (y - p.cy) * f, y, z]; };
     const duct = gridSurface(inPt, range(NAC_X0, 1.1, 12), nth, { closedV: true, flip: true });
     const lip = gridSurface((k, t) => (k ? inPt(NAC_X0, t) : nacPoint(NAC_X0, t)), [0, 1], nth, { closedV: true });
     const plate = (() => { const p = NAC(1.6); const g = new THREE.PlaneGeometry((p.w - inset) * 2, p.ht + p.hb - 0.06); g.rotateY(-Math.PI / 2); g.rotateZ(-0.35); g.translate(1.6, p.cy, p.cz); return g; })();
     air(duct, L.intakeDark); air(mirrorZ(duct), L.intakeDark);
     air(lip, L.aluDark); air(mirrorZ(lip), L.aluDark);
-    air(plate, L.primerGrey); air(mirrorZ(plate), L.primerGrey);
+    const perf = perforatedMaterial(); air(plate, perf); air(mirrorZ(plate), perf);
   }
   // жалюзи дополнительных входов на наплывах (открыты на земле)
   {
@@ -346,32 +330,13 @@ export function buildMig29(L, { detail = 1 } = {}) {
     const m = new THREE.Mesh(geo, L.paint); m.position.set(-STAB.pivotX, -STAB.y0, -STAB.z0 * s);
     m.castShadow = m.receiveShadow = true; g.add(m); pickables.push(m); airframeMeshes.push(m);
     colliders.push(geo);
+    const dg = s > 0 ? stabDischargers() : mirrorZ(stabDischargers()), dm = new THREE.Mesh(dg, L.black); dm.position.copy(m.position); g.add(dm);
     stabs[s > 0 ? "R" : "L"] = g;
   }
 
-  /* ═══════════ основные стойки шасси ═══════════ */
-  for (const s of [1, -1]) {
-    const S = s > 0 ? "R" : "L", mg = GEAR.main, gx = mg.x, lz = mg.legZ, wz = mg.z, r = mg.r;
-    const mz = (g) => (s > 0 ? g : mirrorZ(g));
-    const tire = place(lathed(r, mg.w), gx, r, wz);
-    const hub = place(hubGeo(0.25, mg.w + 0.02), gx, r, wz);
-    part("wheel_" + S, [[mz(tire), L.tire], [mz(hub), L.aluDark]], V(0, 0, 1.3 * s));
-    const disc = mergeAll([cyl(0.2, 0.2, 0.1, "z", gx, r, wz - 0.1, 28), ...Array.from({ length: 6 }, (_, k) => cyl(0.205, 0.205, 0.008, "z", gx, r, wz - 0.14 + k * 0.016, 28))]);
-    const cal = mergeAll([box(0.14, 0.12, 0.1, gx + 0.16, r + 0.12, wz - 0.12), cyl(0.025, 0.025, 0.1, "z", gx + 0.17, r + 0.18, wz - 0.12, 8)]);
-    part("brakes_" + S, [[mz(disc), L.burnt], [mz(cal), L.gearPaint]], V(0, 0, 0.8 * s));
-    const barrel = mergeAll([cyl(0.078, 0.078, 1.1, "y", gx, 1.56, lz, 18), cyl(0.1, 0.1, 0.12, "y", gx, 2.04, lz, 18), cyl(0.05, 0.05, 0.34, "z", gx, 2.0, lz - 0.1, 12)]);
-    const piston = cyl(0.056, 0.056, 0.55, "y", gx, 0.86, lz, 16);
-    const axle = mergeAll([box(0.18, 0.16, 0.12, gx, r + 0.02, lz), cyl(0.045, 0.045, lz - wz + 0.04, "z", gx, r, (lz + wz) / 2, 12)]);
-    const links = mergeAll([box(0.03, 0.34, 0.06, gx + 0.1, 1.08, lz, 0, 0, -0.35), box(0.03, 0.34, 0.06, gx + 0.1, 0.78, lz, 0, 0, 0.35)]);
-    const brace = mergeAll([tube([[gx, 1.35, lz], [gx + 0.5, 1.75, lz - 0.08], [gx + 0.9, 2.05, lz - 0.12]], 0.035, 12, 8), tube([[gx - 0.02, 1.25, lz], [gx - 0.2, 1.7, lz - 0.2], [gx - 0.35, 2.05, lz - 0.3]], 0.026, 12, 8)]);
-    part("strut_" + S, [[mz(mergeAll([barrel, axle, links, brace])), L.gearPaint], [mz(piston), L.chrome]], V(0, -0.4, 0.9 * s));
-    // створка ниши основной стойки
-    air(mz(mergeAll([box(0.72, 0.72, 0.012, gx - 0.12, 1.62, lz + 0.11), box(0.5, 0.012, 0.3, gx + 0.35, 2.05, lz - 0.28)])), L.paintDouble);
-    // фара на стойке (левой)
-    if (s < 0) air(mz(cyl(0.05, 0.055, 0.07, "x", gx + 0.12, 1.3, lz, 14)), L.chrome);
-    colliders.push(mz(cyl(0.45, 0.45, 1.2, "y", gx, 0.6, (lz + wz) / 2, 12)));
-    anchors["wheel" + S] = V(gx, r, wz * s);
-  }
+  /* ═══════════ основные опоры шасси ═══════════ */
+  const bayDark = new THREE.MeshStandardMaterial({ color: "#1a1d1c", roughness: 0.9, side: THREE.DoubleSide });
+  for (const s of [1, -1]) buildMainGear(s, { part, air, L, colliders, anchors, V, bayMat: bayDark, flagMat, redCloth });
 
   /* ═══════════ мелкие детали: ОЛС, антенны, пушка, маяки ═══════════ */
   {
@@ -379,9 +344,8 @@ export function buildMig29(L, { detail = 1 } = {}) {
     air(sphere(0.105, 5.18, 2.79, 0.16, 1, 1, 1, 20, 12), L.lens);
     const blade = (x, y, h, down) => place(new THREE.BoxGeometry(0.28, h, 0.012), x, y + (down ? -h / 2 : h / 2), 0, 0, 0, down ? -0.25 : 0.25);
     air(mergeAll([blade(-0.6, 2.77, 0.16), blade(-3.0, 2.6, 0.12), blade(1.0, CORE(1).cy - CORE(1).hb, 0.14, true)]), L.dielectric);
-    // пушка ГШ-30-1 в корне левого наплыва
-    air(cyl(0.028, 0.034, 0.3, "x", 2.55, 2.26, -0.78, 12), L.steelDark);
-    air(cyl(0.045, 0.045, 0.04, "x", 2.7, 2.26, -0.78, 12), L.black);
+    // пилоны, разрядники, датчики, пушка, дренажи
+    buildDetails({ air, L, colliders, wingTopY });
     const b1 = new THREE.Mesh(sphere(0.045, -1.0, CORE(-1).cy + CORE(-1).ht + 0.01, 0, 1, 0.6, 1), L.navRed); plane.add(b1);
     const b2 = new THREE.Mesh(sphere(0.045, 0.6, CORE(0.6).cy - CORE(0.6).hb - 0.01, 0, 1, 0.6, 1), L.navRed); plane.add(b2);
     lights.beacons = [b1, b2];
@@ -428,26 +392,6 @@ export function wingTopY(x, z) {
   const xc = Math.max(0.001, Math.min(1, (le - x) / c));
   const half = 5 * t * (0.2969 * Math.sqrt(xc) - 0.126 * xc - 0.3516 * xc * xc + 0.2843 * xc ** 3 - 0.1036 * xc ** 4) * c;
   return off + half;
-}
-/* шина: тор с прямоугольным сечением, ось вращения — Z */
-function lathed(R, W) {
-  const prof = [];
-  const rIn = R * 0.58;
-  const pts = [[rIn, -W / 2 * 0.9], [R * 0.8, -W / 2], [R * 0.95, -W / 2 * 0.9], [R, -W / 2 * 0.55], [R, 0], [R, W / 2 * 0.55], [R * 0.95, W / 2 * 0.9], [R * 0.8, W / 2], [rIn, W / 2 * 0.9]];
-  for (const p of pts) prof.push(new THREE.Vector2(p[0], p[1]));
-  const g = new THREE.LatheGeometry(prof, 48);
-  g.rotateX(Math.PI / 2);
-  // UV: u — по окружности (протектор), v — поперёк
-  const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 6, uv.getY(i));
-  return g;
-}
-function hubGeo(R, W) {
-  const pts = [[0.02, -W / 2], [R * 0.45, -W / 2], [R * 0.55, -W / 2 * 0.6], [R, -W / 2 * 0.5], [R, W / 2 * 0.5], [R * 0.55, W / 2 * 0.6], [R * 0.45, W / 2], [0.02, W / 2]];
-  const g = new THREE.LatheGeometry(pts.map((p) => new THREE.Vector2(p[0], p[1])), 36);
-  g.rotateX(Math.PI / 2);
-  const bolts = [];
-  for (let k = 0; k < 8; k++) { const a = (k / 8) * TAU; bolts.push(cyl(0.012, 0.012, 0.03, "z", Math.cos(a) * R * 0.35, Math.sin(a) * R * 0.35, W / 2, 6)); }
-  return mergeAll([g, ...bolts]);
 }
 /* капот — заплатка на поверхности мотогондолы */
 function sectionPatchNac(x0, x1, t0, t1) {

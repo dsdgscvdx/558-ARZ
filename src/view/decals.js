@@ -44,6 +44,24 @@ export function stencilCanvas(kind) {
     g.fillStyle = "#1a1a1a"; g.font = "bold 40px Arial"; g.fillText("⏚ ЗАЗЕМЛЕНИЕ", 256, 128);
   } else if (kind === "walk") {
     g.strokeStyle = "#1a1a1a"; g.lineWidth = 8; g.strokeRect(20, 20, 472, 216); g.font = "bold 40px Arial"; g.fillStyle = "#1a1a1a"; g.fillText("ХОДИТЬ ЗДЕСЬ", 256, 128);
+  } else if (kind === "nitrogen" || kind === "hydro" || kind === "oil" || kind === "oxygen" || kind === "tow") {
+    const T = { nitrogen: ["АЗОТ", "ЗАРЯДКА 110 кгс/см²"], hydro: ["ГИДРОСИСТЕМА", "АМГ-10"], oil: ["МАСЛО", "ИПМ-10  ЗАПРАВКА"], oxygen: ["КИСЛОРОД", "ЗАРЯДКА 150 кгс/см²"], tow: ["БУКСИРОВКА", "ЗА НОСОВУЮ ОПОРУ"] }[kind];
+    g.strokeStyle = "#151515"; g.lineWidth = 6; g.strokeRect(24, 48, 464, 160);
+    g.fillStyle = "#151515"; g.font = "bold 58px Arial"; g.fillText(T[0], 256, 104); g.font = "34px Arial"; g.fillText(T[1], 256, 166);
+  } else if (kind === "pyro") {
+    g.fillStyle = "#c62828"; g.font = "bold 54px Arial"; g.fillText("ОСТОРОЖНО!", 256, 88); g.font = "bold 40px Arial"; g.fillText("ПИРОСРЕДСТВА", 256, 150);
+    g.strokeStyle = "#c62828"; g.lineWidth = 6; g.strokeRect(20, 30, 472, 160);
+  } else if (kind === "canopyEmerg") {
+    g.fillStyle = "#e8b21a"; g.fillRect(8, 20, 496, 216); g.fillStyle = "#1a1a1a"; g.fillRect(22, 34, 468, 188);
+    g.fillStyle = "#e8b21a"; g.font = "bold 40px Arial"; g.fillText("АВАРИЙНОЕ", 256, 80); g.fillText("ОТКРЫТИЕ ФОНАРЯ", 256, 130);
+    g.font = "30px Arial"; g.fillText("ОТКРЫТЬ ЛЮЧОК · ПОТЯНУТЬ", 256, 184);
+  } else if (kind === "serial") {
+    g.fillStyle = "#d9dad2"; g.fillRect(40, 70, 432, 116); g.strokeStyle = "#1a1a1a"; g.lineWidth = 4; g.strokeRect(40, 70, 432, 116);
+    g.fillStyle = "#1a1a1a"; g.font = "bold 44px monospace"; g.fillText("2960535418", 256, 116); g.font = "26px Arial"; g.fillText("ИЗД. 9-13  РЕМ. 558 АРЗ", 256, 160);
+  } else if (kind === "walkLine") {
+    g.fillStyle = "#171717"; g.fillRect(0, 40, 512, 14); g.fillRect(0, 202, 512, 14);
+  } else if (kind === "noEntry") {
+    g.fillStyle = "#c62828"; g.font = "bold 46px Arial"; g.fillText("НЕ ПОДХОДИТЬ", 256, 96); g.font = "32px Arial"; g.fillText("работает двигатель", 256, 156);
   } else if (kind === "antiglare") {
     const gr = g.createLinearGradient(0, 0, 512, 0); gr.addColorStop(0, "rgba(40,44,46,0)"); gr.addColorStop(0.12, "rgba(40,44,46,1)"); gr.addColorStop(1, "rgba(40,44,46,1)");
     g.fillStyle = gr; g.fillRect(0, 20, 512, 216);

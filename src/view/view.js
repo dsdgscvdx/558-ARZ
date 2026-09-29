@@ -122,6 +122,21 @@ function buildDecals(M, L) {
     add(decal(mesh, new THREE.Vector3(1.4, 2.42, 1.15 * s), new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0), 0.8, 0.4, st("walk"), 0.3));
   }
   add(decal(mesh, new THREE.Vector3(-3.0, 2.64, 0.2), new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0), 0.34, 0.17, decalMaterial(texFromCanvas(stencilCanvas("fuel"))), 0.3));
+  // технические трафареты у точек обслуживания
+  const stm = {}; const st2 = (k) => (stm[k] = stm[k] || decalMaterial(texFromCanvas(stencilCanvas(k))));
+  for (const s of [1, -1]) {
+    const nz = (x) => (NAC(x).cz + NAC(x).w) * s;
+    add(decal(mesh, new THREE.Vector3(-0.35, 1.62, nz(-0.35)), new THREE.Vector3(0, 0, s), new THREE.Vector3(s, 0, 0), 0.26, 0.13, st2("nitrogen"), 0.3));
+    add(decal(mesh, new THREE.Vector3(-2.3, 1.7, nz(-2.3)), new THREE.Vector3(0, 0, s), new THREE.Vector3(s, 0, 0), 0.26, 0.13, st2("oil"), 0.3));
+    add(decal(mesh, new THREE.Vector3(1.7, 1.95, nz(1.7)), new THREE.Vector3(0, 0, s), new THREE.Vector3(s, 0, 0), 0.34, 0.12, st2("noEntry"), 0.3));
+    add(decal(mesh, new THREE.Vector3(2.85, 2.5, 0.6 * s), new THREE.Vector3(0, 0.2, s), new THREE.Vector3(s, 0, 0), 0.24, 0.12, st2("pyro"), 0.3));
+    add(decal(mesh, new THREE.Vector3(1.4, 2.43, 0.95 * s), new THREE.Vector3(0, 1, 0), new THREE.Vector3(1, 0, 0), 1.3, 0.62, st2("walkLine"), 0.3));
+  }
+  add(decal(mesh, new THREE.Vector3(4.35, 2.4, 0.63), new THREE.Vector3(0, 0.1, 1), new THREE.Vector3(1, 0, 0), 0.24, 0.12, st2("canopyEmerg"), 0.3));
+  add(decal(mesh, new THREE.Vector3(2.2, 2.62, 0.5), new THREE.Vector3(0, 0.45, 1), new THREE.Vector3(1, 0, 0), 0.26, 0.13, st2("oxygen"), 0.3));
+  add(decal(mesh, new THREE.Vector3(-0.5, 1.67, 0.25), new THREE.Vector3(0, -1, 0), new THREE.Vector3(1, 0, 0), 0.34, 0.17, st2("hydro"), 0.3));
+  add(decal(mesh, new THREE.Vector3(3.6, 1.6, 0.2), new THREE.Vector3(0, -1, 0.2), new THREE.Vector3(1, 0, 0), 0.3, 0.15, st2("tow"), 0.3));
+  add(decal(mesh, new THREE.Vector3(-4.3, 1.95, 1.55), new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0), 0.22, 0.11, st2("serial"), 0.3));
   const ag = new THREE.MeshStandardMaterial({ map: texFromCanvas(stencilCanvas("antiglare")), transparent: true, roughness: 0.85, metalness: 0, polygonOffset: true, polygonOffsetFactor: -4, depthWrite: false });
   add(decal(mesh, new THREE.Vector3(5.45, 2.75, 0), new THREE.Vector3(0.25, 1, 0), new THREE.Vector3(-1, 0, 0), 1.0, 0.72, ag, 0.5));
 }

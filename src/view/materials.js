@@ -39,7 +39,7 @@ float gSeam, gGrime, gWear, gSoot, gHC, gUp; vec3 gTW;
 `;
 const paintColor = /* glsl */ `
 {
-  vec3 nO = normalize(vON);
+  vec3 nO = normalize(vON) * (gl_FrontFacing ? 1.0 : -1.0);   // двусторонние детали с обратным обходом
   gTW = triW(nO); gUp = step(0.0, nO.y);
   vec4 PL = texture2D(uPlan, planUV(vOP));
   vec4 SD = texture2D(uSide, sideUV(vOP));
@@ -96,7 +96,7 @@ export function paintMaterial(o = {}) {
         .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\n" + paintMetal)
         .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\n" + paintNormal);
     };
-    m.customProgramCacheKey = () => "paint-v1";
+    m.customProgramCacheKey = () => "paint-v2";
     m.userData.factory = make;
     return m;
   };
