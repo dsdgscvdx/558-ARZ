@@ -88,7 +88,7 @@ export function buildWorld(L, TX, opts = {}) {
   for (const t of [TX.floor.map, TX.floor.normal, TX.floor.orm]) t.repeat.set(1 / 6, 1 / 6);
   const macro = TX.floorMacro;
   // планарное отражение (включается из view.js на «Высоком»/«Ультра»)
-  const refl = { uReflTex: { value: null }, uReflMat: { value: new THREE.Matrix4() }, uReflOn: { value: 0 }, uReflK: { value: 0.62 } };
+  const refl = { uReflTex: { value: null }, uReflMat: { value: new THREE.Matrix4() }, uReflOn: { value: 0 }, uReflK: { value: 0.48 } };
   floorMat.userData.refl = refl;
   floorMat.onBeforeCompile = (sh) => {
     sh.uniforms.uMacro = { value: macro };
@@ -526,6 +526,17 @@ export function buildWorld(L, TX, opts = {}) {
   }
   // второй самолёт в дальнем пролёте — вставляется из main (клон модели); здесь его чехлы/стремянки
   dyn.bay2 = { x: -17.5, z: -9.5, ry: -0.55 };
+  // тележка для снятых агрегатов (справа от самолёта)
+  {
+    const cx = 0.6, cz = 7.2, cart = [];
+    cart.push([box(2.4, 0.06, 1.2, 0, 0.62, 0), L.darkProp, { collide: true }]);
+    cart.push([box(2.44, 0.1, 0.04, 0, 0.66, 0.6), L.yellow], [box(2.44, 0.1, 0.04, 0, 0.66, -0.6), L.yellow], [box(0.04, 0.1, 1.2, 1.2, 0.66, 0), L.yellow], [box(0.04, 0.1, 1.2, -1.2, 0.66, 0), L.yellow]);
+    for (const [x, z] of [[-1.05, -0.5], [1.05, -0.5], [-1.05, 0.5], [1.05, 0.5]]) { cart.push([box(0.05, 0.5, 0.05, x, 0.35, z), L.greyProp], [cyl(0.1, 0.1, 0.06, "z", x, 0.1, z, 14), L.rubber]); }
+    cart.push([tube([[-1.2, 0.66, -0.45], [-1.55, 0.95, -0.45], [-1.55, 0.95, 0.45], [-1.2, 0.66, 0.45]], 0.02, 12, 6), L.greyProp]);
+    for (const [g, m, o] of cart) b.add(g.translate(cx, 0, cz), m, o || {});
+    dyn.cart = { x: cx, y: 0.66, z: cz, w: 2.3, d: 1.1 };
+    spot("stock", "Тележка со снятыми агрегатами (склад)", cx, 0.9, cz, 2.6, 1.2, 1.4);
+  }
 
   /* ---------- надписи и флаг ---------- */
   {

@@ -108,9 +108,14 @@ export function cloneMat(m) {
   if (m.userData && m.userData.factory) {
     const c = m.userData.factory();
     c.side = m.side; c.transparent = m.transparent; c.opacity = m.opacity;
+    if (m.userData.base && m.userData.base.isColor) c.userData.base = m.userData.base.clone();
     return c;
   }
-  return m.clone();
+  // Material.clone() копирует userData через JSON — THREE.Color превращается в число; восстанавливаем
+  const c = m.clone();
+  if (m.userData && m.userData.base && m.userData.base.isColor) c.userData.base = m.userData.base.clone();
+  else delete c.userData.base;
+  return c;
 }
 
 /* ---------- библиотека PBR ---------- */

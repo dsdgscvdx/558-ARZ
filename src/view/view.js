@@ -398,6 +398,41 @@ export function partCenter(id, out = new THREE.Vector3()) {
 }
 export function partBox(id) { const p = V.parts[id]; const vis = p.group.visible; p.group.visible = true; const b = new THREE.Box3().setFromObject(p.group); p.group.visible = vis; return b; }
 
+/* ═════════════ тележка со снятыми агрегатами ═════════════ */
+const cartCache = new Map();
+function cartModel(slotId) {
+  if (cartCache.has(slotId)) return cartCache.get(slotId).clone();
+  const p = V.parts[slotId]; if (!p) return null;
+  const g = new THREE.Group(), box = new THREE.Box3();
+  for (const m of p.meshes) { m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox); }
+  const c = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+  for (const m of p.meshes) {
+    const mat = cloneMat(m.material); if (mat.userData.base) mat.color.copy(mat.userData.base); mat.emissive && mat.emissive.set(0, 0, 0); mat.transparent = false; mat.opacity = 1;
+    const mm = new THREE.Mesh(m.geometry, mat); mm.position.copy(c).negate(); mm.castShadow = true; mm.receiveShadow = true; g.add(mm);
+  }
+  const wrap = new THREE.Group(); wrap.add(g);
+  const k = Math.min(1, 0.75 / Math.max(size.x, size.z, 0.01), 0.7 / Math.max(size.y, 0.01));
+  wrap.scale.setScalar(k); wrap.userData.h = size.y * k;
+  cartCache.set(slotId, wrap);
+  return wrap.clone();
+}
+/* inv: предметы склада; показываем снятые с самолёта (до 6 шт.) */
+export function syncRemoved(inv, slotOf) {
+  const cart = V.W.dyn.cart; if (!cart) return;
+  if (!V.cartGroup) { V.cartGroup = new THREE.Group(); V.W.hangar.add(V.cartGroup); }
+  const key = inv.filter((i) => i.removed).map((i) => i.uid).join(",");
+  if (key === V._cartKey) return; V._cartKey = key;
+  V.cartGroup.clear();
+  const items = inv.filter((i) => i.removed).slice(-6);
+  items.forEach((it, i) => {
+    const m = cartModel(slotOf(it.type)); if (!m) return;
+    const col = i % 3, row = Math.floor(i / 3);
+    m.position.set(cart.x - cart.w / 2 + 0.4 + col * 0.75, cart.y + m.userData.h / 2 + 0.01, cart.z - 0.28 + row * 0.56);
+    m.rotation.y = (i % 2 ? 0.3 : -0.2);
+    V.cartGroup.add(m);
+  });
+}
+
 /* ═════════════ фонарь кабины, питание, ворота ═════════════ */
 export function setCanopy(open) { V.canopyTarget = open ? 1 : 0; }
 export function setPower(on) {

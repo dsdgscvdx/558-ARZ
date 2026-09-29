@@ -158,7 +158,9 @@ export function updateHUD() {
   document.querySelectorAll(".rail .tool").forEach((b) => { const need = ["order", "inspect", "sheet", "engine", "radar", "otk"].includes(b.dataset.act); b.hidden = need && !S; });
   $("tInspect").classList.toggle("on", VW.V.inspect);
 }
-export function afterChange() { save(); updateHUD(); renderCard(); VW.paintAll(); }
+/* тип детали → узел самолёта, чью модель показать на тележке */
+const slotOfType = (t) => { if (P && S) { for (const id of SID) if (ST[id] === t && !slot(id).on) return id; } return SID.find((id) => ST[id] === t); };
+export function afterChange() { save(); updateHUD(); renderCard(); VW.paintAll(); if (P) VW.syncRemoved(P.inv, slotOfType); }
 
 /* ---------- карточка детали ---------- */
 export let selected = null;

@@ -95,6 +95,12 @@ export class Render {
     this.composer = new EffectComposer(r, rt);
     this.renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(this.renderPass);
+    // страховка: NaN/Infinity от любого материала не должны растекаться через размытие bloom
+    this.composer.addPass(new ShaderPass({
+      uniforms: { tDiffuse: { value: null } },
+      vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
+      fragmentShader: "uniform sampler2D tDiffuse; varying vec2 vUv; void main(){ vec4 c = texture2D(tDiffuse, vUv); if (any(isnan(c)) || any(isinf(c))) c = vec4(0.0, 0.0, 0.0, 1.0); gl_FragColor = vec4(min(c.rgb, vec3(60000.0)), c.a); }",
+    }));
     this.gtao = null; this.bloom = null;
     if (q.ao) {
       const s = q.aoScale || 1;
