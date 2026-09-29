@@ -63,8 +63,8 @@
 
 ```bash
 npm install
-npm run build      # dist/index.html
-npm run watch      # пересборка при изменениях (с source map)
+npm run build      # dist/index.html (+ dist/artifact.html без обёртки документа)
+npm run watch      # dist/dev.html, пересборка при изменениях (с source map)
 ```
 
 Исходники: `src/view` — графика (модель самолёта, ангар, материалы, эффекты, рендер), `src/world` — физика и персонаж,
