@@ -7,7 +7,7 @@ import { buildPaintMaps } from "./mig29paint.js";
 import { buildMig29 } from "./mig29.js";
 import { buildWorld, H, PAD, SUN_DIR } from "./hangar.js";
 import { makeFlame, Particles, makeDust, makeBeam } from "./effects.js";
-import { cockpitTextures, boardNumberCanvas, flagCanvas, stencilCanvas, decal, decalMaterial, texFromCanvas } from "./decals.js";
+import { boardNumberCanvas, flagCanvas, stencilCanvas, decal, decalMaterial, texFromCanvas } from "./decals.js";
 import { buildTechnician, buildViewmodel } from "./character.js";
 import { NAC, NAC_X1, FIN, CANOPY } from "./mig29dims.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -46,10 +46,6 @@ export async function initView(canvas, quality, progress = () => {}) {
   L.aluDS = L.alu.clone(); L.aluDS.side = THREE.DoubleSide;
   L.yellowFilter = new THREE.MeshStandardMaterial({ color: "#c9a13a", roughness: 0.45, metalness: 0.6 });
   L.radome.userData.paint.uTint.value.set("#a9b0b2");
-  const ck = cockpitTextures();
-  L.panelMat = new THREE.MeshStandardMaterial({ map: ck.panelMap, emissiveMap: ck.panelEmis, emissive: "#ffffff", emissiveIntensity: 0, roughness: 0.6 });
-  L.consoleMat = new THREE.MeshStandardMaterial({ map: ck.consoleMap, roughness: 0.7 });
-  L.hudGlass = new THREE.MeshBasicMaterial({ map: ck.hudTex, color: "#000000", transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   L.canopyGlass = R.q.glass ? L.canopy : L.canopyFallback;
   L.blackCyl = new THREE.MeshStandardMaterial({ color: "#1e2326", roughness: 0.5, metalness: 0.3 });
   L.redSign = new THREE.MeshStandardMaterial({ color: "#c62828", roughness: 0.6 });
@@ -438,14 +434,13 @@ export function setCanopy(open) { V.canopyTarget = open ? 1 : 0; }
 export function setPower(on) {
   V.power = on;
   const L = V.L, M = V.M;
-  L.panelMat.emissiveIntensity = on ? 1.6 : 0; L.hudGlass.color.set(on ? "#b8ffcf" : "#000000");
   for (const k of ["navL", "navR", "tail"]) M.lights[k].material.emissiveIntensity = on ? 6 : 0;
 }
 export function setDoor(open) { V.doorTarget = open ? 1 : 0; }
 
 /* ═════════════ огонь двигателя и авария ═════════════ */
 export function engineFx(E, time) {
-  const fx = V.fx;
+  const fx = V.fx; V.engineE = E;
   for (const s of ["L", "R"]) {
     const f = fx.flames[s], on = E && s === E.side && E.N > 20 && E.phase !== "dead";
     if (!on) { f.set(0, 0, time, 0); continue; }
@@ -576,6 +571,11 @@ export function frameView(dt, time) {
   }
   if (fx.dust) { fx.dust.material.uniforms.uTime.value = time; fx.dust.visible = V.world === "hangar"; }
   for (const b of fx.beams || []) { b.material.uniforms.uTime.value = time; b.visible = V.world === "hangar" && V.doorTarget > 0.5; }
+  // приборы кабины: питание, двигатель, курс, часы
+  if (M.cockpit) {
+    const d = new Date(), sec = d.getSeconds() + d.getMilliseconds() / 1000, min = d.getMinutes() + sec / 60;
+    M.cockpit.update({ power: V.power, E: V.engineE, canopy: V.canopy, dt, heading: Math.PI / 2 - M.group.rotation.y, clock: { h: (d.getHours() % 12) + min / 60, m: min, s: Math.floor(sec) } });
+  }
   // стабилизаторы «дышат» при работе гидросистемы — задаётся извне через V.stabDeflect
   const sd = V.stabDeflect || 0;
   M.stabs.L.rotation.z += (sd - M.stabs.L.rotation.z) * Math.min(1, dt * 4); M.stabs.R.rotation.z = M.stabs.L.rotation.z;

@@ -161,13 +161,15 @@ export function place(g, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy
   _m.compose(_p, _q, _s); g.applyMatrix4(_m); return g;
 }
 export const box = (w, h, d, x, y, z, rx, ry, rz) => place(new THREE.BoxGeometry(w, h, d), x, y, z, rx, ry, rz);
-export function rbox(w, h, d, r, x, y, z, rx = 0, ry = 0, rz = 0) { // скруглённый параллелепипед
-  const s = new THREE.Shape(), hw = w / 2 - r, hh = h / 2 - r;
-  s.moveTo(-hw, -h / 2); s.lineTo(hw, -h / 2); s.quadraticCurveTo(w / 2, -h / 2, w / 2, -hh); s.lineTo(w / 2, hh);
-  s.quadraticCurveTo(w / 2, h / 2, hw, h / 2); s.lineTo(-hw, h / 2); s.quadraticCurveTo(-w / 2, h / 2, -w / 2, hh);
-  s.lineTo(-w / 2, -hh); s.quadraticCurveTo(-w / 2, -h / 2, -hw, -h / 2);
-  const g = new THREE.ExtrudeGeometry(s, { depth: d - 2 * Math.min(r, d / 3), bevelEnabled: true, bevelSize: Math.min(r, d / 3) * 0.9, bevelThickness: Math.min(r, d / 3), bevelSegments: 3, curveSegments: 4 });
-  g.translate(0, 0, -(d - 2 * Math.min(r, d / 3)) / 2);
+export function rbox(w, h, d, r, x, y, z, rx = 0, ry = 0, rz = 0) { // скруглённый параллелепипед точно w×h×d
+  const bt = Math.min(r, d / 3), bs = bt * 0.9;                   // фаска выдвигает контур наружу — компенсируем
+  const W = Math.max(w - 2 * bs, 1e-3), Hh = Math.max(h - 2 * bs, 1e-3), rr = Math.min(Math.max(r - bs, 0.0004), W / 2, Hh / 2);
+  const s = new THREE.Shape(), hw = W / 2 - rr, hh = Hh / 2 - rr;
+  s.moveTo(-hw, -Hh / 2); s.lineTo(hw, -Hh / 2); s.quadraticCurveTo(W / 2, -Hh / 2, W / 2, -hh); s.lineTo(W / 2, hh);
+  s.quadraticCurveTo(W / 2, Hh / 2, hw, Hh / 2); s.lineTo(-hw, Hh / 2); s.quadraticCurveTo(-W / 2, Hh / 2, -W / 2, hh);
+  s.lineTo(-W / 2, -hh); s.quadraticCurveTo(-W / 2, -Hh / 2, -hw, -Hh / 2);
+  const g = new THREE.ExtrudeGeometry(s, { depth: d - 2 * bt, bevelEnabled: true, bevelSize: bs, bevelThickness: bt, bevelSegments: 3, curveSegments: 4 });
+  g.translate(0, 0, -(d - 2 * bt) / 2);
   return place(g, x, y, z, rx, ry, rz);
 }
 /* цилиндр вдоль оси ('x' | 'y' | 'z') */

@@ -1,6 +1,6 @@
 /* Геометрические параметры МиГ-29 (система координат самолёта: +X — нос, +Y — вверх, +Z — правый борт,
    Y=0 — бетон при стоянке на колёсах). Размеры близки к реальным: длина 17,3 м с ПВД, размах 11,36 м. */
-import { makeInterp } from "./geo.js";
+import { makeInterp, sePoint } from "./geo.js";
 
 export const DEG = Math.PI / 180;
 
@@ -73,6 +73,32 @@ export const canopyTop = makeInterp([
   { x: 4.98, top: 2.775, w: 0.52 }, { x: 4.60, top: 3.10, w: 0.53 }, { x: 4.30, top: 3.24, w: 0.535 },
   { x: 3.70, top: 3.34, w: 0.54 }, { x: 3.10, top: 3.30, w: 0.53 }, { x: 2.64, top: 3.08, w: 0.50 },
 ]);
+
+/* сечение фонаря: phi ∈ [−1, 1] от левого борта до правого, grow — смещение наружу.
+   Козырёк — плоское лобовое бронестекло между двумя стойками и скруглённые боковины;
+   откидная часть — «пузырь», в передней части плавно переходящий в профиль козырька. */
+export const WS = { zfTop: 0.15, zfBot: 0.19, pf: 0.36, blend: 0.45 };
+const smooth01 = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+export function canopyPt(x, phi, grow = 0) {
+  const c = canopyTop(x), [ys, zs] = sePoint(CORE(x), CANOPY.sillT), hw = zs * 1.015 + grow;
+  const sg = phi < 0 ? -1 : 1, ap = Math.min(1, Math.abs(phi)), a = (ap * Math.PI) / 2;
+  const yb = ys + (c.top + grow - ys) * Math.pow(Math.cos(a), 0.87), zb = hw * Math.pow(Math.sin(a), 0.87);
+  const f = x >= CANOPY.xw ? 1 : smooth01((x - (CANOPY.xw - WS.blend)) / WS.blend);
+  if (f <= 0) return [x, yb, sg * zb];
+  const k = Math.max(0, Math.min(1, (x - CANOPY.xw) / (CANOPY.x0 - CANOPY.xw)));
+  const tw = canopyTop(CANOPY.xw).top, t0 = canopyTop(CANOPY.x0).top;
+  const yT = (x >= CANOPY.xw ? tw + (t0 - tw) * k : c.top) + grow, zf = WS.zfTop + (WS.zfBot - WS.zfTop) * k;
+  let yw, zw;
+  if (ap <= WS.pf) { zw = (ap / WS.pf) * zf; yw = yT; }
+  else { const b = ((ap - WS.pf) / (1 - WS.pf)) * Math.PI / 2; zw = zf + (hw - zf) * Math.pow(Math.sin(b), 0.8); yw = ys + (yT - ys) * Math.pow(Math.cos(b), 0.8); }
+  return [x, yb + (yw - yb) * f, sg * (zb + (zw - zb) * f)];
+}
+/* высота внутренней поверхности остекления над точкой (x, z) — для проверки зазоров */
+export function canopyYAt(x, z) {
+  let lo = 0, hi = 1, az = Math.abs(z);
+  for (let i = 0; i < 22; i++) { const m = (lo + hi) / 2; if (Math.abs(canopyPt(x, m)[2]) < az) lo = m; else hi = m; }
+  return canopyPt(x, (lo + hi) / 2)[1];
+}
 
 /* вырезы и люки (углы θ: 0 — верх, 90° — правый борт, 180° — низ) */
 export const HOLES = {

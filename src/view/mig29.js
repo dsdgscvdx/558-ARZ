@@ -8,6 +8,8 @@ import {
 } from "./geo.js";
 import { CORE, CORE_X0, CORE_X1, NAC, NAC_X0, NAC_X1, INTAKE_SLOPE, WING_SECTIONS, FIN, STAB, CANOPY, canopyTop, HOLES, COWL, GEAR, DEG } from "./mig29dims.js";
 import { cloneMat } from "./materials.js";
+import { buildCockpit, buildSeat } from "./cockpit.js";
+import { buildCanopy } from "./canopy.js";
 
 const TAU = Math.PI * 2;
 const angIn = (t, a, b) => { const d = (((t - a) % TAU) + TAU) % TAU; return d <= b - a + 1e-6; };
@@ -124,69 +126,12 @@ export function buildMig29(L, { detail = 1 } = {}) {
     air(mergeAll([cyl(0.03, 0.03, 0.2, "x", 6.4, 2.3, 0.25, 8), box(0.12, 0.3, 0.08, 6.36, 2.1, -0.3)]), L.primerGrey);
   }
 
-  /* ═══════════ кабина ═══════════ */
-  {
-    const hc = HOLES.cockpit;
-    air(bayFromHole(CORE, hc, 1.98, 14), L.cockpit);
-    // приборная доска с козырьком
-    const pg = new THREE.PlaneGeometry(0.78, 0.46); pg.rotateY(-Math.PI / 2); pg.rotateZ(-0.3); pg.translate(4.40, 2.5, 0);
-    air(pg, L.panelMat || L.cockpitDark);
-    air(mergeAll([rbox(0.3, 0.05, 0.86, 0.02, 4.52, 2.75, 0), box(0.04, 0.5, 0.84, 4.46, 2.48, 0)]), L.cockpitDark);
-    // ИЛС
-    air(mergeAll([box(0.03, 0.2, 0.03, 4.63, 2.86, 0.14), box(0.03, 0.2, 0.03, 4.63, 2.86, -0.14), box(0.2, 0.05, 0.3, 4.62, 2.78, 0)]), L.black);
-    const hg = new THREE.PlaneGeometry(0.28, 0.2); hg.rotateY(-Math.PI / 2); hg.rotateZ(-0.55); hg.translate(4.62, 2.9, 0);
-    air(hg, L.hudGlass || L.glassDark, { noShadow: true });
-    // пульты
-    air(mergeAll([box(1.2, 0.2, 0.16, 3.62, 2.26, 0.39), box(1.2, 0.2, 0.16, 3.62, 2.26, -0.39)]), L.cockpit);
-    air(mergeAll([place(new THREE.PlaneGeometry(1.18, 0.15), 3.62, 2.365, 0.39, -Math.PI / 2, 0, 0), place(new THREE.PlaneGeometry(1.18, 0.15), 3.62, 2.365, -0.39, -Math.PI / 2, 0, 0)]), L.consoleMat || L.cockpitDark);
-    // РУС и РУД
-    air(mergeAll([cyl(0.018, 0.022, 0.46, "y", 3.98, 2.2, 0, 10), rbox(0.05, 0.12, 0.045, 0.015, 3.98, 2.46, 0)]), L.black);
-    air(mergeAll([box(0.05, 0.14, 0.03, 3.52, 2.43, -0.37, 0, 0, 0.3), box(0.05, 0.14, 0.03, 3.52, 2.43, -0.41, 0, 0, 0.3)]), L.black);
-    // педали, пол кабины, ручки на бортах
-    air(mergeAll([box(0.08, 0.2, 0.1, 4.25, 2.08, 0.16, 0, 0, 0.5), box(0.08, 0.2, 0.1, 4.25, 2.08, -0.16, 0, 0, 0.5), box(1.9, 0.02, 0.8, 3.7, 1.99, 0)]), L.cockpitDark);
-    air(mergeAll([cyl(0.012, 0.012, 0.35, "x", 3.9, 2.55, 0.47, 6), cyl(0.012, 0.012, 0.35, "x", 3.9, 2.55, -0.47, 6)]), L.yellowStripe);
-    // направляющие кресла
-    air(mergeAll([box(0.05, 1.1, 0.05, 2.86, 2.5, 0.2), box(0.05, 1.1, 0.05, 2.86, 2.5, -0.2)]), L.steelDark);
-    anchors.pilotEye = V(3.28, 3.0, 0);
-    anchors.seat = V(3.2, 2.3, 0);
-  }
-  /* катапультное кресло К-36ДМ (узел «пиропатроны кресла») */
-  {
-    const bucket = mergeAll([rbox(0.46, 0.14, 0.44, 0.03, 3.26, 2.22, 0), rbox(0.1, 0.72, 0.46, 0.03, 2.98, 2.6, 0, 0, 0, 0.12)]);
-    const head = mergeAll([rbox(0.2, 0.3, 0.36, 0.04, 2.96, 3.08, 0, 0, 0, 0.12), rbox(0.16, 0.08, 0.3, 0.02, 3.02, 3.25, 0, 0, 0, 0.12)]);
-    const cushion = mergeAll([rbox(0.4, 0.08, 0.38, 0.03, 3.26, 2.32, 0), rbox(0.07, 0.56, 0.38, 0.03, 3.04, 2.64, 0, 0, 0, 0.12)]);
-    const sides = mergeAll([box(0.5, 0.26, 0.03, 3.2, 2.3, 0.24), box(0.5, 0.26, 0.03, 3.2, 2.3, -0.24), box(0.08, 0.95, 0.03, 2.94, 2.66, 0.25), box(0.08, 0.95, 0.03, 2.94, 2.66, -0.25)]);
-    const handle = mergeAll([torus(0.07, 0.012, "x", 3.5, 2.28, 0, 6, 16, Math.PI)]);
-    const straps = mergeAll([box(0.02, 0.5, 0.05, 3.08, 2.62, 0.12, 0, 0, 0.2), box(0.02, 0.5, 0.05, 3.08, 2.62, -0.12, 0, 0, 0.2)]);
-    part("seat_pyro", [[bucket, L.seatGreen], [head, L.cockpitDark], [cushion, L.seatGreen], [sides, L.gearGreen], [handle, L.yellowStripe], [straps, L.hose]], V(0, 1.5, 0));
-  }
+  /* ═══════════ кабина и кресло К-36ДМ (узел «пиропатроны кресла») ═══════════ */
+  const cockpit = buildCockpit({ plane, air, part, L, anchors, pickables, detail });
+  part("seat_pyro", buildSeat(part, L), V(0, 1.5, 0));
 
   /* ═══════════ фонарь: неподвижный козырёк + откидная часть на заднем шарнире ═══════════ */
-  const canopy = new THREE.Group(); canopy.position.set(CANOPY.hingeX, CANOPY.hingeY, 0); plane.add(canopy);
-  {
-    const sill = (x) => { const [y, z] = sePoint(CORE(x), CANOPY.sillT); return [y, z]; };
-    const canPt = (x, phi, grow = 0) => {
-      const c = canopyTop(x), [ys, zs] = sill(x), hw = zs * 1.015 + grow, H = c.top - ys + grow;
-      const a = phi * Math.PI / 2, s = Math.sin(a), co = Math.abs(Math.cos(a));
-      return [x, ys + H * Math.pow(co, 0.87), hw * Math.sign(s) * Math.pow(Math.abs(s), 0.87)];
-    };
-    const glass = (x0, x1, nx) => gridSurface((x, p) => canPt(x, p), range(x0, x1, nx), range(-1, 1, 30));
-    const ws = glass(CANOPY.x0, CANOPY.xw, 10);
-    const mv = glass(CANOPY.xw - 0.01, CANOPY.x1, 18);
-    const glassMat = L.canopyGlass || L.canopy;
-    const wsM = new THREE.Mesh(ws, glassMat); wsM.userData.interact = "canopy"; plane.add(wsM); pickables.push(wsM);
-    const mvM = new THREE.Mesh(mv, glassMat); mvM.userData.interact = "canopy"; mvM.position.set(-CANOPY.hingeX, -CANOPY.hingeY, 0); canopy.add(mvM); pickables.push(mvM);
-    // переплёт
-    const arch = (x, r, grow) => { const pts = []; for (let i = 0; i <= 16; i++) pts.push(canPt(x, -1 + i / 8, grow)); return tube(pts, r, 32, 6); };
-    const rail = (x0, x1, side, r) => { const pts = []; for (let i = 0; i <= 12; i++) { const x = x0 + ((x1 - x0) * i) / 12; pts.push(canPt(x, side, 0.004)); } return tube(pts, r, 24, 6); };
-    air(mergeAll([arch(CANOPY.xw + 0.012, 0.02, 0.006), rail(CANOPY.x0, CANOPY.xw, 1, 0.014), rail(CANOPY.x0, CANOPY.xw, -1, 0.014)]), L.paint);
-    const mvFrame = mergeAll([arch(CANOPY.xw - 0.025, 0.022, 0.008), arch(CANOPY.x1 + 0.03, 0.03, 0.01), rail(CANOPY.xw, CANOPY.x1, 1, 0.022), rail(CANOPY.xw, CANOPY.x1, -1, 0.022),
-      box(0.06, 0.03, 0.05, 4.2, canopyTop(4.2).top + 0.02, 0)]);
-    const fr = new THREE.Mesh(mvFrame, L.paintDouble); fr.castShadow = true; fr.position.set(-CANOPY.hingeX, -CANOPY.hingeY, 0); fr.userData.interact = "canopy"; canopy.add(fr); pickables.push(fr);
-    // перископ
-    const per = new THREE.Mesh(place(new THREE.SphereGeometry(0.035, 10, 8), 4.26, canopyTop(4.26).top + 0.05, 0, 0, 0, 0, 1.6, 0.8, 1), L.chrome); per.position.set(-CANOPY.hingeX, -CANOPY.hingeY, 0); canopy.add(per);
-    anchors.canopyGlassMeshes = [wsM, mvM];
-  }
+  const { canopy } = buildCanopy({ plane, air, L, pickables, anchors });
 
   /* ═══════════ закабинный отсек (жгут СУО, аккумулятор) и люк ═══════════ */
   {
@@ -465,7 +410,7 @@ export function buildMig29(L, { detail = 1 } = {}) {
   }
   anchors.canopy = canopy; anchors.stabs = stabs;
   anchors.canopyHinge = V(CANOPY.hingeX, CANOPY.hingeY, 0);
-  return { group: plane, parts, pickables, airframeMeshes, colliders, lights, anchors, canopy, stabs };
+  return { group: plane, parts, pickables, airframeMeshes, colliders, lights, anchors, canopy, stabs, cockpit };
 }
 
 /* ---------- вспомогательные геометрии ---------- */
