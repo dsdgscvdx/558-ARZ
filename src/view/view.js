@@ -80,7 +80,7 @@ export async function initView(canvas, quality, progress = () => {}) {
     g2.traverse((o) => { if (o.isMesh) { if (!matMap.has(o.material)) matMap.set(o.material, cloneMat(o.material)); o.material = matMap.get(o.material); } });
     const b2 = W.dyn.bay2; g2.position.set(b2.x, 0, b2.z); g2.rotation.y = b2.ry;
     // снятые капоты и обтекатель — как будто самолёт в ремонте
-    g2.traverse((o) => { if (o.userData.slot && ["radome", "cowl_L", "nozzle_R", "wheel_R"].includes(o.userData.slot)) o.visible = false; });
+    g2.traverse((o) => { if (o.userData.slot && ["radome", "pitot", "cowl_L", "nozzle_R", "wheel_R"].includes(o.userData.slot)) o.visible = false; });
     V.scene.add(g2); V.plane2 = g2;
   }
 
@@ -93,6 +93,7 @@ export async function initView(canvas, quality, progress = () => {}) {
   V.scene.add(V.tech.root); V.tech.root.visible = false;
   V.hands = buildViewmodel(TX);
   V.camera.add(V.hands.root); V.scene.add(V.camera);
+  buildNPCs(TX);
 
   progress(0.88, "Отражения окружения…"); await nextFrame();
   R.setupComposer();
@@ -168,6 +169,42 @@ function buildContactShadow() {
   V.updateContactShadow();
 }
 
+/* ═════════════ работники цеха ═════════════ */
+function buildNPCs(TX) {
+  V.npcs = [];
+  const p2 = V.plane2;
+  const at = (lx, lz) => (p2 ? p2.localToWorld(new THREE.Vector3(lx, 0, lz)) : new THREE.Vector3(-17.5 + lx * 0.3, 0, -9.5 + lz));
+  const list = [
+    { name: "Мастер участка Жук", pos: new THREE.Vector3(-12.2, 0, -20.35), face: new THREE.Vector3(0, 0, -1), work: 1, crouch: 0, suit: "#2e3a48" },
+    { name: "Слесарь Ковалёв", pos: at(7.6, 0.75), faceTo: at(6.6, 0.1), work: 1, crouch: 0, suit: "#34424f" },
+    { name: "Техник Лукашевич", pos: at(-0.9, 2.45), faceTo: at(-0.75, 1.6), work: 0.6, crouch: 1, suit: "#2b3542" },
+    { name: "Контролёр ОТК Савицкая", pos: new THREE.Vector3(-26.4, 0, 14.6), face: new THREE.Vector3(0.2, 0, -1), work: 0, crouch: 0, suit: "#d9dcdc", cap: "#e6e8e8" },
+  ];
+  for (const n of list) {
+    if (!p2 && n.faceTo) continue;            // без второго самолёта этим двоим нечего делать
+    const t = buildTechnician(TX, { suit: n.suit, cap: n.cap });
+    const f = n.face ? n.face.clone() : n.faceTo.clone().sub(n.pos).setY(0).normalize();
+    t.root.position.copy(n.pos); t.root.rotation.y = Math.atan2(f.x, f.z);
+    V.scene.add(t.root);
+    V.W.colliders.push(new THREE.CylinderGeometry(0.32, 0.32, 1.7, 10).translate(n.pos.x, 0.85, n.pos.z));
+    V.W.spots.push({ key: "npc", label: "Поговорить: " + n.name, npc: n.name, box: new THREE.Box3().setFromCenterAndSize(n.pos.clone().setY(1.0), new THREE.Vector3(0.7, 1.9, 0.7)) });
+    V.npcs.push({ ...n, t, yaw: t.root.rotation.y, phase: Math.random() * 10 });
+  }
+}
+export function updateNPCs(dt, eye) {
+  for (const n of V.npcs || []) {
+    n.phase += dt;
+    const near = eye && n.t.root.position.distanceTo(eye) < 5;
+    n.t.animate({ speed: 0, crouch: n.crouch, work: near && n.work < 1 ? 0 : n.work * (0.6 + 0.4 * Math.max(0, Math.sin(n.phase * 0.3))), dt, lookPitch: 0 });
+    const h = n.t.parts.head;
+    if (near) {
+      const d = eye.clone().sub(n.t.root.position); let a = Math.atan2(d.x, d.z) - n.yaw;
+      while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2;
+      h.rotation.y += (THREE.MathUtils.clamp(a, -1.1, 1.1) - h.rotation.y) * Math.min(1, dt * 4);
+    } else h.rotation.y *= 1 - Math.min(1, dt * 2);
+  }
+}
+
 /* ═════════════ свет ═════════════ */
 function buildLights() {
   const s = V.scene, q = V.R.q;
@@ -214,7 +251,7 @@ function buildFx() {
     for (let k = 0; k < 10; k++) {
       const xa = H.x0 + k * 6 + 0.6, xb = xa + 4.8, z = H.z - 0.2, y0 = 7.45, y1 = 10.15;
       const len = y1 / -d.y * 0.95;
-      const b = makeBeam([new THREE.Vector3(xa, y1, z), new THREE.Vector3(xb, y1, z), new THREE.Vector3(xb, y0, z), new THREE.Vector3(xa, y0, z)], d, len, 0.028);
+      const b = makeBeam([new THREE.Vector3(xa, y1, z), new THREE.Vector3(xb, y1, z), new THREE.Vector3(xb, y0, z), new THREE.Vector3(xa, y0, z)], d, len, 0.05);
       V.W.hangar.add(b); beams.push(b);
       beamInfo.push({ a: new THREE.Vector3((xa + xb) / 2, (y0 + y1) / 2, z), b: new THREE.Vector3((xa + xb) / 2, (y0 + y1) / 2, z).addScaledVector(d, len * 0.8), w: 4.5, h: 2.5 });
     }
@@ -308,6 +345,7 @@ export function setHover(id) { if (id === V.hovered) return; const o = V.hovered
 export function setSelected(id) { const o = V.selected; V.selected = id; if (o) paintPart(o); if (id) paintPart(id); }
 
 export function syncPlane(isOn, bort) {
+  V.isOn = isOn;
   V.anims.length = 0;
   for (const id in V.parts) {
     const p = V.parts[id]; p.group.position.set(0, 0, 0); p.group.visible = isOn(id);
@@ -327,6 +365,15 @@ export function animPart(id, removing) {
   for (const m of p.meshes) m.material.transparent = true;
   V.anims = V.anims.filter((a) => a.id !== id);
   V.anims.push({ id, t: 0, dur: 0.9, removing });
+}
+/* ПВД стоит на носке обтекателя: без обтекателя его не видно, при снятии обтекателя он уезжает вместе с ним */
+function syncPitot() {
+  const r = V.parts.radome, p = V.parts.pitot; if (!r || !p) return;
+  if (V.anims.some((a) => a.id === "pitot")) return;
+  const pitotOn = V.isOn ? V.isOn("pitot") : true;
+  p.group.visible = pitotOn && r.group.visible;
+  p.group.position.copy(r.group.position);
+  for (let i = 0; i < p.meshes.length; i++) { const rm = r.meshes[0].material; p.meshes[i].material.transparent = rm.transparent; p.meshes[i].material.opacity = rm.opacity; }
 }
 function stepAnims(dt) {
   for (let i = V.anims.length - 1; i >= 0; i--) {
@@ -419,10 +466,57 @@ export function stepOrbit(dt, reduceMotion) {
   cam.up.set(0, 1, 0); cam.lookAt(orbit.t);
 }
 
+/* ═════════════ планарное отражение пола ангара ═════════════ */
+const RF = { rt: null, cam: new THREE.PerspectiveCamera(), tm: new THREE.Matrix4(), n: new THREE.Vector3(0, 1, 0), p: new THREE.Vector3(),
+  v: new THREE.Vector3(), rot: new THREE.Matrix4(), look: new THREE.Vector3(), tgt: new THREE.Vector3(), plane: new THREE.Plane(), clip: new THREE.Vector4(), q: new THREE.Vector4() };
+export function updateReflection() {
+  const floor = V.W.dyn.floor, u = floor.material.userData.refl, q = V.R.q, cam = V.camera;
+  const on = !!q.reflect && V.world === "hangar" && cam.position.y > 0.05;
+  u.uReflOn.value = on ? 1 : 0;
+  if (!on) return;
+  const r = V.R.renderer, size = r.getDrawingBufferSize(new THREE.Vector2()).multiplyScalar(q.reflect);
+  const w = Math.max(64, Math.round(size.x)), h = Math.max(64, Math.round(size.y));
+  if (!RF.rt || RF.rt.width !== w || RF.rt.height !== h) {
+    if (RF.rt) RF.rt.dispose();
+    RF.rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+    u.uReflTex.value = RF.rt.texture;
+  }
+  // виртуальная камера, отражённая относительно плоскости пола (как в Reflector.js)
+  const vc = RF.cam, cp = cam.getWorldPosition(RF.v.set(0, 0, 0));
+  RF.rot.extractRotation(cam.matrixWorld);
+  RF.look.set(0, 0, -1).applyMatrix4(RF.rot).add(cp);
+  const mirror = (p) => p.set(p.x, -p.y, p.z);
+  vc.position.copy(cp); mirror(vc.position);
+  RF.tgt.copy(RF.look); mirror(RF.tgt);
+  vc.up.set(0, 1, 0).applyMatrix4(RF.rot).reflect(RF.n);
+  vc.lookAt(RF.tgt);
+  vc.near = cam.near; vc.far = cam.far; vc.fov = cam.fov; vc.aspect = cam.aspect;
+  vc.updateMatrixWorld(); vc.projectionMatrix.copy(cam.projectionMatrix);
+  RF.tm.set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1);
+  RF.tm.multiply(vc.projectionMatrix).multiply(vc.matrixWorldInverse);
+  u.uReflMat.value.copy(RF.tm);
+  // косое отсечение ниже пола
+  RF.plane.setFromNormalAndCoplanarPoint(RF.n, RF.p.set(0, 0, 0)).applyMatrix4(vc.matrixWorldInverse);
+  RF.clip.set(RF.plane.normal.x, RF.plane.normal.y, RF.plane.normal.z, RF.plane.constant);
+  const pm = vc.projectionMatrix, e = pm.elements;
+  RF.q.x = (Math.sign(RF.clip.x) + e[8]) / e[0]; RF.q.y = (Math.sign(RF.clip.y) + e[9]) / e[5]; RF.q.z = -1.0; RF.q.w = (1.0 + e[10]) / e[14];
+  RF.clip.multiplyScalar(2.0 / RF.clip.dot(RF.q));
+  e[2] = RF.clip.x; e[6] = RF.clip.y; e[10] = RF.clip.z + 1.0 - 0.001; e[14] = RF.clip.w;
+  // рендер без пола, пыли, лучей и рук; карты теней переиспользуются
+  const hidden = [floor, V.fx.dust, ...(V.fx.beams || []), V.hands && V.hands.root, V.marker].filter(Boolean), vis = hidden.map((o) => o.visible);
+  hidden.forEach((o) => (o.visible = false));
+  const sm = r.shadowMap.autoUpdate; r.shadowMap.autoUpdate = false;
+  const prevT = r.getRenderTarget();
+  r.setRenderTarget(RF.rt); r.clear(); r.render(V.scene, vc);
+  r.setRenderTarget(prevT); r.shadowMap.autoUpdate = sm;
+  hidden.forEach((o, i) => (o.visible = vis[i]));
+}
+
 /* ═════════════ кадр ═════════════ */
 const _v = new THREE.Vector3();
 export function frameView(dt, time) {
   stepAnims(dt);
+  syncPitot();
   const M = V.M;
   // фонарь кабины
   if (Math.abs(V.canopy - V.canopyTarget) > 1e-4) {

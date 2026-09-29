@@ -9,14 +9,14 @@ function capsule(r, len, mat, seg = 10) {
 }
 function joint(parent, x, y, z) { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; }
 
-export function buildTechnician(T) {
-  const suit = new THREE.MeshStandardMaterial({ color: "#2e3a48", roughness: 0.92, normalMap: T.fabric.normal, normalScale: new THREE.Vector2(0.9, 0.9) });
+export function buildTechnician(T, o = {}) {
+  const suit = new THREE.MeshStandardMaterial({ color: o.suit || "#2e3a48", roughness: 0.92, normalMap: T.fabric.normal, normalScale: new THREE.Vector2(0.9, 0.9) });
   const suitDark = new THREE.MeshStandardMaterial({ color: "#232c37", roughness: 0.95, normalMap: T.fabric.normal });
   const refl = new THREE.MeshStandardMaterial({ color: "#c9cdc6", roughness: 0.35, metalness: 0.2, emissive: "#3a3c38", emissiveIntensity: 0.4 });
-  const skin = new THREE.MeshStandardMaterial({ color: "#c49a7c", roughness: 0.62 });
+  const skin = new THREE.MeshStandardMaterial({ color: o.skin || "#c49a7c", roughness: 0.62 });
   const boot = new THREE.MeshStandardMaterial({ color: "#161718", roughness: 0.5, metalness: 0.05 });
   const glove = new THREE.MeshStandardMaterial({ color: "#6d5b3e", roughness: 0.85 });
-  const capM = new THREE.MeshStandardMaterial({ color: "#1f2a36", roughness: 0.9, normalMap: T.fabric.normal });
+  const capM = new THREE.MeshStandardMaterial({ color: o.cap || "#1f2a36", roughness: 0.9, normalMap: T.fabric.normal });
   const badge = new THREE.MeshStandardMaterial({ color: "#c8313e", roughness: 0.6 });
   const toolM = new THREE.MeshStandardMaterial({ color: "#b8bec2", roughness: 0.25, metalness: 1 });
 

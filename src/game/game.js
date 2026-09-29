@@ -918,4 +918,17 @@ export function toolAct(a) {
   else if (a === "help") openHelp();
 }
 export function startNew(name) { newPlayer(name); save(); }
+/* подсказка мастера: что делать дальше по наряду */
+export function hintState() {
+  if (!S) return null;
+  const unknown = Object.keys(S.reported).filter((id) => slot(id).on && slot(id).known < 2);
+  if (unknown.length) return `Начни с дефектовки: ${label(unknown[0])} — заявлено в наряде.`;
+  const broken = SID.filter((id) => slot(id).on && slot(id).known === 2 && (slot(id).defect || slot(id).cond < OTK_MIN));
+  if (broken.length) return `${label(broken[0])} неисправен — меняй или ремонтируй. Детали — в терминале снабжения.`;
+  const off = SID.filter((id) => !slot(id).on);
+  if (off.length) return `Не забудь поставить на место: ${label(off[0])}.`;
+  const np = requiredTests().filter((t) => !S.tests[t]);
+  if (np.length) return `Осталось: ${TEST_NAME[np[0]]}. ${np[0] === "radar" ? "КПА стоит у носа." : "Тягач у ворот."}`;
+  return "Всё готово — неси в ОТК, окно в дальнем углу цеха.";
+}
 export { label, ST, PT, SID };

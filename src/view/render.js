@@ -12,8 +12,8 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 export const QUALITY = {
   low:    { name: "Низкое",   pr: 0.75, maxPr: 1,   shadow: 1024, sunShadow: true,  ao: false, bloom: false, msaa: 0, aniso: 4,  tex: 0.5,  second: false, dust: false, glass: false },
   medium: { name: "Среднее",  pr: 1,    maxPr: 1.25, shadow: 2048, sunShadow: true,  ao: false, bloom: true,  msaa: 4, aniso: 8,  tex: 0.75, second: false, dust: true,  glass: false },
-  high:   { name: "Высокое",  pr: 1,    maxPr: 1.5,  shadow: 2048, sunShadow: true,  ao: true,  bloom: true,  msaa: 4, aniso: 12, tex: 1,    second: true,  dust: true,  glass: true, aoScale: 0.5 },
-  ultra:  { name: "Ультра",   pr: 1,    maxPr: 2,    shadow: 4096, sunShadow: true,  ao: true,  bloom: true,  msaa: 4, aniso: 16, tex: 1,    second: true,  dust: true,  glass: true, aoScale: 1 },
+  high:   { name: "Высокое",  pr: 1,    maxPr: 1.5,  shadow: 2048, sunShadow: true,  ao: true,  bloom: true,  msaa: 4, aniso: 12, tex: 1,    second: true,  dust: true,  glass: true, aoScale: 0.5, reflect: 0.35 },
+  ultra:  { name: "Ультра",   pr: 1,    maxPr: 2,    shadow: 4096, sunShadow: true,  ao: true,  bloom: true,  msaa: 4, aniso: 16, tex: 1,    second: true,  dust: true,  glass: true, aoScale: 1, reflect: 0.5 },
 };
 
 const GradeShader = {

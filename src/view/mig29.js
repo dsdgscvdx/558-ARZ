@@ -437,6 +437,19 @@ export function buildMig29(L, { detail = 1 } = {}) {
     const b1 = new THREE.Mesh(sphere(0.045, -1.0, CORE(-1).cy + CORE(-1).ht + 0.01, 0, 1, 0.6, 1), L.navRed); plane.add(b1);
     const b2 = new THREE.Mesh(sphere(0.045, 0.6, CORE(0.6).cy - CORE(0.6).hb - 0.01, 0, 1, 0.6, 1), L.navRed); plane.add(b2);
     lights.beacons = [b1, b2];
+    // контейнер тормозного парашюта между килями (характерный «цилиндр» МиГ-29)
+    { const top = (x) => CORE(x).cy + CORE(x).ht;
+      const prof = [[-4.7, 0.02], [-4.85, 0.13], [-5.3, 0.17], [-6.9, 0.175], [-7.35, 0.16], [-7.55, 0.1], [-7.62, 0.0]];
+      air(latheX(prof, 28, { cy: top(-6) + 0.12, cz: 0 }), L.paint);
+      air(mergeAll([torus(0.176, 0.006, "x", -7.3, top(-6) + 0.12, 0, 4, 28), box(0.5, 0.1, 0.12, -5.6, top(-5.6) + 0.02, 0)]), L.steelDark); }
+    // подфюзеляжные гребни под мотогондолами
+    for (const s of [1, -1]) {
+      const cz = NAC(-5.6).cz * s, yb = NAC(-5.6).cy - NAC(-5.6).hb + 0.03;
+      const sh = new THREE.Shape(); sh.moveTo(-4.9, 0); sh.lineTo(-6.35, 0); sh.lineTo(-6.45, -0.34); sh.lineTo(-5.95, -0.36); sh.closePath();
+      const g = new THREE.ExtrudeGeometry(sh, { depth: 0.024, bevelEnabled: true, bevelSize: 0.008, bevelThickness: 0.008, bevelSegments: 1 });
+      g.translate(0, 0, -0.012); g.rotateX(s * 0.12); g.translate(0, yb, cz + s * 0.18);
+      air(g, L.paint);
+    }
     // точки швартовки/заземления
     air(mergeAll([cyl(0.03, 0.03, 0.05, "y", 4.2, CORE(4.2).cy - CORE(4.2).hb - 0.02, 0, 10)]), L.steel);
   }

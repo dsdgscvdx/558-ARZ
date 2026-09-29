@@ -358,6 +358,23 @@ function useSpot(s) {
   else if (k === "kpa") G.toolAct("radar");
   else if (k === "door") { VW.setDoor(!V.doorTarget); A.motor(6, 0.08, 70); setTimeout(() => VW.recaptureHangarEnv(), 6500); }
   else if (k === "cockpitLadder") player.tryLadder(ladders, true);
+  else if (k === "npc") talk(s.npc);
+}
+/* реплики работников цеха — подсказки по текущему наряду */
+function talk(name) {
+  const S = G.S, pick = (a) => a[Math.floor(Math.random() * a.length)];
+  let line;
+  if (name.startsWith("Мастер")) {
+    if (!S) line = "Наряды на доске у стены. Начни с тормозов — работа простая, а научит многому.";
+    else {
+      const st = G.hintState();
+      line = st || pick(["Сначала дефектовка, потом заказ деталей — иначе выкинешь деньги.", "Скрытые дефекты ОТК всё равно найдёт. Лучше найди сам — премия больше.", "Снимаешь снаружи внутрь, ставишь изнутри наружу. Не перепутай."]);
+    }
+  } else if (name.startsWith("Контролёр")) line = S ? pick(["Без протоколов испытаний самолёт не приму.", "Формуляры, пломбы, ресурс узлов — всё проверю. Ниже 50 % не пропущу.", "Предъявлять — через окно ОТК, когда всё соберёте."]) : "Самолёта на приёмке нет. Возьмите наряд.";
+  else if (name.startsWith("Слесарь")) line = pick(["Этот борт после птицы — обтекатель меняем. Не мешай, тут ВЧ-блок открыт.", "Ключ на 22 не видел? Опять кто-то с тележки унёс.", "На газовку без заглушек не выкатывай — пожарные ругаются."]);
+  else line = pick(["Колесо КТ-150 тяжёлое, под сорок кило. Спину береги.", "Азот в амортстойке проверю — и можно опускать с подъёмников.", "Под мотогондолой только на корточках, там не выпрямишься."]);
+  G.toast(`${name}: «${line}»`, "", 6500);
+  A.beep(700, 0.03, 0.02);
 }
 function toggleCanopy() { VW.setCanopy(!V.canopyTarget); A.motor(2.2, 0.06, 160); }
 function inReach(id) {
@@ -477,7 +494,7 @@ function openSettings() {
     <label for="sInv">Инверсия по вертикали</label><input type="checkbox" id="sInv" ${settings.invertY ? "checked" : ""}>
     <label for="sFps">Показывать FPS</label><input type="checkbox" id="sFps" ${settings.fps ? "checked" : ""}>
   </div><p class="note" style="margin:0">«Высокое» и «Ультра» включают затенение GTAO, отражения стекла фонаря, пылинки в лучах и второй самолёт в дальнем пролёте. Разрешение процедурных текстур меняется после перезагрузки страницы.</p>`, { narrow: true });
-  body.querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => { settings.quality = b.dataset.q; saveSettings(); applyQuality(); openSettings(); }));
+  body.querySelectorAll("[data-q]").forEach((b) => (b.onclick = () => { settings.quality = b.dataset.q; settings.qualityManual = true; saveSettings(); applyQuality(); openSettings(); }));
   $("sSens").oninput = (e) => { settings.sens = +e.target.value; if (player) player.sens = settings.sens; saveSettings(); };
   $("sFov").oninput = (e) => { settings.fov = +e.target.value; V.camera.fov = settings.fov; V.camera.updateProjectionMatrix(); saveSettings(); };
   $("sVol").oninput = (e) => { settings.volume = +e.target.value; A.setVolume(settings.volume); saveSettings(); };
@@ -496,6 +513,20 @@ function applyQuality() {
   if (V.plane2) V.plane2.visible = q.second;
 }
 $("fps").hidden = !settings.fps;
+
+/* автоснижение качества: если в игре долго меньше ~24 кадров/с — на ступень ниже (один раз за сессию) */
+const aq = { t: 0, frames: 0, done: false };
+function autoQuality(dt) {
+  if (aq.done || settings.qualityManual || mode === "menu" || document.hidden) return;
+  aq.t += dt; aq.frames++;
+  if (aq.t < 6) return;
+  const fps = aq.frames / aq.t; aq.t = 0; aq.frames = 0;
+  if (fps >= 24) { aq.ok = (aq.ok || 0) + 1; if (aq.ok >= 3) aq.done = true; return; }
+  const order = ["low", "medium", "high", "ultra"], i = order.indexOf(settings.quality);
+  if (i <= 0) { aq.done = true; return; }
+  settings.quality = order[i - 1]; saveSettings(); applyQuality();
+  G.toast(`Качество графики снижено до «${QUALITY[settings.quality].name}» (${Math.round(fps)} кадр/с). Изменить — «Настройки».`, "warn", 6000);
+}
 
 /* ═════════════ игровой цикл ═════════════ */
 const _fwd = new THREE.Vector3();
@@ -554,7 +585,10 @@ function loop(t) {
   V.hands.update(dt, working && (mode === "walk" || mode === "seat") && !player.third && working.kind !== "visual" ? working.kind : null);
   A.ambienceTick(dt);
   VW.frameView(dt, time);
+  VW.updateNPCs(dt, (mode === "walk" || mode === "seat") && player ? player.eye : null);
+  VW.updateReflection();
   V.R.render(dt);
+  autoQuality(dt);
   if (settings.fps) { fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { $("fps").textContent = `${Math.round(fpsN / fpsAcc)} FPS · ${QUALITY[V.R.qKey].name}`; fpsAcc = 0; fpsN = 0; } }
 }
 

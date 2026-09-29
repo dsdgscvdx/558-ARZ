@@ -19,9 +19,10 @@ async function assemble(jsText) {
     .replace("<!--CSS-->", () => `<style>\n${css}</style>`)
     .replace("<!--JS-->", () => `<script>\n${js}</script>`);
   await mkdir(resolve(root, "dist"), { recursive: true });
-  await writeFile(resolve(root, "dist/index.html"), html);
+  const out = dev ? "dist/dev.html" : "dist/index.html";   // отладочная сборка не попадает в репозиторий
+  await writeFile(resolve(root, out), html);
   const kb = (Buffer.byteLength(html) / 1024).toFixed(0);
-  console.log(`dist/index.html — ${kb} KB${dev ? " (dev)" : ""}`);
+  console.log(`${out} — ${kb} KB${dev ? " (dev)" : ""}`);
 }
 
 const options = {

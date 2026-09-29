@@ -87,14 +87,29 @@ export function buildWorld(L, TX, opts = {}) {
   const floorMat = new THREE.MeshStandardMaterial({ map: TX.floor.map, normalMap: TX.floor.normal, roughnessMap: TX.floor.orm, roughness: 1, metalness: 0, normalScale: new THREE.Vector2(0.7, 0.7) });
   for (const t of [TX.floor.map, TX.floor.normal, TX.floor.orm]) t.repeat.set(1 / 6, 1 / 6);
   const macro = TX.floorMacro;
+  // планарное отражение (включается из view.js на «Высоком»/«Ультра»)
+  const refl = { uReflTex: { value: null }, uReflMat: { value: new THREE.Matrix4() }, uReflOn: { value: 0 }, uReflK: { value: 0.62 } };
+  floorMat.userData.refl = refl;
   floorMat.onBeforeCompile = (sh) => {
     sh.uniforms.uMacro = { value: macro };
-    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec3 vWP;").replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;");
-    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform sampler2D uMacro; varying vec3 vWP;")
+    Object.assign(sh.uniforms, refl);
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec3 vWP; varying vec4 vReflUv; uniform mat4 uReflMat;")
+      .replace("#include <worldpos_vertex>", "#include <worldpos_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vReflUv = uReflMat * vec4(vWP, 1.0);");
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nuniform sampler2D uMacro; varying vec3 vWP; varying vec4 vReflUv; uniform sampler2D uReflTex; uniform float uReflOn; uniform float uReflK;")
       .replace("#include <color_fragment>", "#include <color_fragment>\nvec4 MAC = texture2D(uMacro, vec2(vWP.x / 72.0 + 0.5, vWP.z / 48.0 + 0.5));\ndiffuseColor.rgb *= mix(0.78, 1.1, MAC.r);")
-      .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor * mix(0.75, 1.5, MAC.g), 0.08, 1.0);");
+      .replace("#include <roughnessmap_fragment>", "#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor * mix(0.75, 1.5, MAC.g), 0.08, 1.0);")
+      .replace("#include <opaque_fragment>", `
+        if (uReflOn > 0.5) {
+          vec3 Nr = normalize(normal); vec3 Vr = normalize(vViewPosition);
+          float NdV = clamp(dot(Nr, Vr), 0.0, 1.0);
+          vec2 ruv = vReflUv.xy / vReflUv.w + Nr.xy * 0.025;
+          vec3 rc = textureLod(uReflTex, ruv, roughnessFactor * 8.0).rgb;
+          float fres = 0.05 + 0.95 * pow(1.0 - NdV, 4.0);
+          outgoingLight += rc * fres * pow(1.0 - roughnessFactor, 2.2) * uReflK;
+        }
+        #include <opaque_fragment>`);
   };
-  floorMat.customProgramCacheKey = () => "floor-macro";
+  floorMat.customProgramCacheKey = () => "floor-macro-refl";
   const corr = TX.corrugated;
   const wallUpper = new THREE.MeshStandardMaterial({ map: corr.map, normalMap: corr.normal, roughnessMap: corr.orm, metalnessMap: corr.orm, metalness: 1, roughness: 1, color: "#e4e8ea" });
   const roofMat = new THREE.MeshStandardMaterial({ map: TX.corrugatedRoof.map, normalMap: TX.corrugatedRoof.normal, roughnessMap: TX.corrugatedRoof.orm, metalnessMap: TX.corrugatedRoof.orm, metalness: 0.6, roughness: 1, color: "#c9ced1", side: THREE.DoubleSide });
@@ -108,7 +123,7 @@ export function buildWorld(L, TX, opts = {}) {
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(H.x1 - H.x0 + 1, H.z * 2 + 1, 1, 1), floorMat);
   // UV в метрах, чтобы тайлинг 6 м совпадал с плитами
   { const g = floor.geometry, uv = g.attributes.uv, p = g.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, p.getX(i), -p.getY(i)); }
-  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; hangar.add(floor);
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; hangar.add(floor); dyn.floor = floor;
   b.colliders.push(box(H.x1 - H.x0 + 40, 0.2, H.z * 2 + 40, 0, -0.1, 0));
 
   /* ---------- разметка пола ---------- */
