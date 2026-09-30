@@ -1,7 +1,7 @@
 /* Карты окраски планера: разделка панелей, заклёпки, крепёж, грязь, потёртости, копоть.
    Рисуются в двух проекциях — «план» (вид сверху/снизу) и «борт» (вид сбоку) — в метрах самолёта. */
 import * as THREE from "three";
-import { canvas, mulberry32, noiseField, dataTex, TEX, digitalCamo } from "./tex.js";
+import { canvas, mulberry32, noiseField, dataTex, TEX, texFromCanvas } from "./tex.js";
 import { PAINT } from "./materials.js";
 import { WING_SECTIONS, FIN, STAB, NAC, CORE, HOLES, COWL, DEG } from "./mig29dims.js";
 import { sePoint } from "./geo.js";
@@ -234,7 +234,49 @@ export function buildPaintMaps(q = 1) {
   PAINT.plan = plan; PAINT.side = side;
   PAINT.planBox.set(PX0, PZ0, 1 / (PX1 - PX0), 1 / (PZ1 - PZ0));
   PAINT.sideBox.set(SX0, SY0, 1 / (SX1 - SX0), 1 / (SY1 - SY0));
-  PAINT.camo = digitalCamo(); PAINT.camoScale = 1 / 5.0;
+  buildMarkings();
   void sePoint; void DEG; void THREE;
   return { plan, side };
+}
+
+/* ═════════ маркировка: флаг Республики Беларусь и бортовой номер ═════════ */
+const ORN = [
+  "......X......", ".....XXX.....", "....XX.XX....", "...XX.X.XX...", "..XX.XXX.XX..", ".XX.XX.XX.XX.", "XX.XX...XX.XX",
+  ".XX.XX.XX.XX.", "..XX.XXX.XX..", "...XX.X.XX...", "....XX.XX....", ".....XXX.....", "......X......",
+  "X...........X", "XX.........XX", ".XX.......XX.", "..XX.....XX..", ".XX.......XX.", "XX.........XX", "X...........X",
+];
+function drawFlag(g, x0, y0, W, H) {
+  const RED = "#c8313e", GRN = "#4a9e55";
+  g.fillStyle = RED; g.fillRect(x0, y0, W, H * 2 / 3);
+  g.fillStyle = GRN; g.fillRect(x0, y0 + H * 2 / 3, W, H / 3);
+  // орнамент у древка: белая полоса 1/9 длины с красным узором
+  const bw = W / 9; g.fillStyle = "#f4f2ec"; g.fillRect(x0, y0, bw, H);
+  const cell = (bw * 0.9) / 13, ox = x0 + bw * 0.05, rows = ORN.length, rep = Math.ceil(H / (rows * cell)) + 1;
+  g.fillStyle = RED;
+  for (let r = 0; r < rep * rows; r++) {
+    const row = ORN[r % rows], y = y0 + r * cell - cell * 3;
+    for (let c = 0; c < 13; c++) if (row[c] === "X" && y >= y0 && y + cell <= y0 + H) g.fillRect(ox + c * cell, y, cell + 0.4, cell + 0.4);
+  }
+}
+let MARK = null;
+function buildMarkings() {
+  const c = canvas(1024, 256), g = c.getContext("2d");
+  g.clearRect(0, 0, 1024, 256);
+  drawFlag(g, 0, 0, 512, 256);
+  MARK = { c, g, tex: null };
+  drawBort("23");
+  MARK.tex = texFromCanvas(c, { clamp: true });
+  PAINT.mark = MARK.tex;
+}
+/* бортовой номер: синие цифры с белой окантовкой */
+export function drawBort(txt) {
+  if (!MARK) return;
+  const g = MARK.g;
+  g.clearRect(512, 0, 512, 256);
+  g.save(); g.translate(768, 136);
+  g.font = "bold 210px 'Russo One', 'Arial Black', sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.lineJoin = "round"; g.lineWidth = 20; g.strokeStyle = "#eef1f2"; g.strokeText(txt, 0, 0);
+  g.fillStyle = "#1d3f8a"; g.fillText(txt, 0, 0);
+  g.restore();
+  if (MARK.tex) MARK.tex.needsUpdate = true;
 }

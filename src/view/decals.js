@@ -4,24 +4,6 @@ import { DecalGeometry } from "three/examples/jsm/geometries/DecalGeometry.js";
 import { canvas, texFromCanvas } from "./tex.js";
 
 /* ---------- текстуры надписей ---------- */
-export function boardNumberCanvas(txt) {
-  const c = canvas(512, 256), g = c.getContext("2d");
-  g.clearRect(0, 0, 512, 256);
-  g.font = "bold 210px 'Russo One', 'Arial Black', sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
-  g.lineJoin = "round"; g.lineWidth = 22; g.strokeStyle = "#eef1f2"; g.strokeText(txt, 256, 136);
-  g.fillStyle = "#1d3f8a"; g.fillText(txt, 256, 136);
-  return c;
-}
-export function flagCanvas() {
-  const c = canvas(600, 330), g = c.getContext("2d");
-  g.fillStyle = "#f2f2f0"; g.fillRect(0, 0, 600, 330);
-  const x0 = 12, y0 = 12, w = 576, h = 306;
-  g.fillStyle = "#c8313e"; g.fillRect(x0, y0, w, h * 2 / 3); g.fillStyle = "#3f9a4d"; g.fillRect(x0, y0 + h * 2 / 3, w, h / 3);
-  g.fillStyle = "#fff"; g.fillRect(x0, y0, 70, h);
-  g.fillStyle = "#c8313e";
-  for (let y = y0 + 4; y < y0 + h - 30; y += 34) { g.beginPath(); g.moveTo(x0 + 35, y); g.lineTo(x0 + 60, y + 17); g.lineTo(x0 + 35, y + 34); g.lineTo(x0 + 10, y + 17); g.closePath(); g.fill(); g.fillStyle = "#fff"; g.fillRect(x0 + 31, y + 13, 8, 8); g.fillStyle = "#c8313e"; }
-  return c;
-}
 export function stencilCanvas(kind) {
   const c = canvas(512, 256), g = c.getContext("2d");
   g.clearRect(0, 0, 512, 256); g.textAlign = "center"; g.textBaseline = "middle";
@@ -74,7 +56,18 @@ export function decal(mesh, pos, normal, right, w, h, mat, depth = 0.25) {
   const z = normal.clone().normalize(), x = right.clone().sub(z.clone().multiplyScalar(right.dot(z))).normalize(), y = z.clone().cross(x);
   const m = new THREE.Matrix4().makeBasis(x, y, z);
   const e = new THREE.Euler().setFromRotationMatrix(m);
-  const g = new DecalGeometry(mesh, pos, e, new THREE.Vector3(w, h, depth));
+  const g0 = new DecalGeometry(mesh, pos, e, new THREE.Vector3(w, h, depth));
+  // проектор «пробивает» тонкие поверхности насквозь — оставляем только грани, обращённые к нему
+  const P = g0.attributes.position, N = g0.attributes.normal, U = g0.attributes.uv, keep = [];
+  for (let i = 0; i < P.count; i += 3) {
+    const nx = N.getX(i) + N.getX(i + 1) + N.getX(i + 2), ny = N.getY(i) + N.getY(i + 1) + N.getY(i + 2), nz = N.getZ(i) + N.getZ(i + 1) + N.getZ(i + 2);
+    const l = Math.hypot(nx, ny, nz) || 1;
+    if ((nx * z.x + ny * z.y + nz * z.z) / l > 0.3) keep.push(i);
+  }
+  const g = new THREE.BufferGeometry(), pa = [], na = [], ua = [];
+  for (const i of keep) for (let k = 0; k < 3; k++) { pa.push(P.getX(i + k), P.getY(i + k), P.getZ(i + k)); na.push(N.getX(i + k), N.getY(i + k), N.getZ(i + k)); ua.push(U.getX(i + k), U.getY(i + k)); }
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pa, 3)); g.setAttribute("normal", new THREE.Float32BufferAttribute(na, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(ua, 2));
+  g0.dispose();
   const d = new THREE.Mesh(g, mat); d.receiveShadow = true; d.renderOrder = 2;
   return d;
 }

@@ -7,7 +7,7 @@ export class Batch {
   constructor() { this.map = new Map(); this.colliders = []; this.spots = []; }
   add(geo, mat, { cast = true, receive = true, collide = false, matrix = null } = {}) {
     if (!geo) return;
-    if (matrix) geo.applyMatrix4(matrix);
+    if (matrix) geo = geo.clone().applyMatrix4(matrix);   // набор может размещаться несколько раз
     const key = mat.uuid + (cast ? "c" : "") + (receive ? "r" : "");
     if (!this.map.has(key)) this.map.set(key, { mat, geos: [], cast, receive });
     this.map.get(key).geos.push(geo);

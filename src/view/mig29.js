@@ -12,7 +12,8 @@ import { buildCockpit, buildSeat } from "./cockpit.js";
 import { buildCanopy } from "./canopy.js";
 import { buildMainGear, buildNoseGear } from "./gear.js";
 import { buildDetails, perforatedMaterial, removeFlagMaterial, streamer, stabDischargers } from "./details.js";
-import { engineBay, engineDressing, radarUnits, avBayUnits, hydroBayUnits } from "./bays.js";
+import { engineBay, radarUnits, avBayUnits, hydroBayUnits } from "./bays.js";
+import { buildRD33, rd33Materials, rd33Meshes, placeInNacelle } from "./rd33.js";
 
 const TAU = Math.PI * 2;
 const angIn = (t, a, b) => { const d = (((t - a) % TAU) + TAU) % TAU; return d <= b - a + 1e-6; };
@@ -230,23 +231,16 @@ export function buildMig29(L, { detail = 1 } = {}) {
     }
     air(mergeAll(dk), L.black, { noShadow: true }); air(mergeAll(sl), L.paint);
   }
+  const RD = buildRD33({ ab: false, detail, accessories: false }), RM = rd33Materials(L);
   const buildEngineSide = (s) => {
     const S = s > 0 ? "R" : "L", mz = (g) => (s > 0 ? g : mirrorZ(g));
     const pc = NAC(-1.5), cyE = pc.cy, cz = (x) => NAC(x).cz;
     // капот
     part("cowl_" + S, [[mz(nacCowl()), L.paintDouble]], V(0, -1.2, 0.5 * s));
-    // компрессор
-    const compProf = [[0.05, 0.3], [0.0, 0.37], [-0.2, 0.375], [-0.22, 0.395], [-0.26, 0.395], [-0.28, 0.375], [-0.6, 0.38], [-0.62, 0.4], [-0.66, 0.4], [-0.68, 0.38], [-1.0, 0.385], [-1.02, 0.405], [-1.06, 0.405], [-1.08, 0.385], [-1.4, 0.39], [-1.45, 0.3]];
-    const comp = latheX(compProf.map(([x, r]) => [x, r]), 40, { cy: cyE, cz: cz(-0.7) });
-    const compPipes = mergeAll([tube([[0.0, cyE + 0.2, cz(0) + 0.33], [-0.5, cyE + 0.25, cz(-0.5) + 0.36], [-1.2, cyE + 0.15, cz(-1.2) + 0.37]], 0.02, 20, 6),
-      tube([[-0.1, cyE - 0.3, cz(0) + 0.2], [-0.8, cyE - 0.33, cz(-0.8) + 0.22], [-1.3, cyE - 0.3, cz(-1.3) + 0.25]], 0.016, 20, 6)]);
-    const dress = engineDressing(cyE, cz);
-    part("comp_" + S, [[mz(comp), L.engineAlu], [mz(compPipes), L.steel], [mz(dress.comp), L.steelDark]], V(0, -0.9, 0.9 * s));
-    // камера сгорания и турбина
-    const turbProf = [[-1.45, 0.39], [-1.5, 0.42], [-1.9, 0.43], [-1.93, 0.45], [-1.97, 0.45], [-2.0, 0.43], [-2.6, 0.42], [-2.63, 0.44], [-2.68, 0.44], [-2.7, 0.41], [-3.2, 0.39], [-3.25, 0.36]];
-    const turb = latheX(turbProf, 40, { cy: cyE, cz: cz(-2.3) });
-    const inj = mergeAll(Array.from({ length: 10 }, (_, k) => { const a = (k / 10) * TAU; return cyl(0.018, 0.018, 0.08, "x", -1.75, cyE + Math.cos(a) * 0.45, cz(-1.75) + Math.sin(a) * 0.45, 6); }));
-    part("turb_" + S, [[mz(turb), L.burnt], [mz(inj), L.bronze], [mz(dress.turb), L.steel]], V(0, -0.9, 0.9 * s));
+    // РД-33: компрессорная часть и горячая часть — отдельные снимаемые узлы
+    const inst = (grp) => rd33Meshes(RD, RM, grp).map(([g, m]) => [mz(placeInNacelle(g, 0.05, 1.12, 0.86, cyE, cz)), m]);
+    part("comp_" + S, inst("comp"), V(0, -0.9, 0.9 * s));
+    part("turb_" + S, inst("turb"), V(0, -0.9, 0.9 * s));
     // агрегаты на коробке приводов
     part("reg_" + S, [[mz(mergeAll([rbox(0.42, 0.15, 0.24, 0.02, -0.25, 1.2, cz(-0.25) - 0.06), cyl(0.03, 0.03, 0.1, "y", -0.12, 1.3, cz(-0.12) + 0.02, 8)])), L.olive]], V(0, -0.6, 0.5 * s));
     part("oilpump_" + S, [[mz(mergeAll([rbox(0.26, 0.13, 0.2, 0.02, -0.85, 1.2, cz(-0.85) - 0.05), cyl(0.04, 0.04, 0.06, "z", -0.85, 1.2, cz(-0.85) + 0.08, 12)])), L.unitGrey]], V(0, -0.6, 0.5 * s));
@@ -255,6 +249,14 @@ export function buildMig29(L, { detail = 1 } = {}) {
     // форсажная труба (неснимаемая) и хвостовой конус турбины
     const jp = latheX([[-3.2, 0.38], [-4.5, 0.39], [-6.0, 0.385], [-6.75, 0.36]], 32, { cy: cyE, cz: cz(-5) });
     air(mz(jp), L.jetpipe);
+    // гофрированный экран форсажной камеры, стойки заднего корпуса турбины, коллекторы форсажа — видно в сопло
+    {
+      const inner = [], cz5 = cz(-5);
+      for (let x = -3.55; x > -6.6; x -= 0.28) inner.push(torus(0.368, 0.012, "x", x, cyE, cz5, 5, 36));
+      for (let k = 0; k < 7; k++) { const a = (k / 7) * TAU; const g = new THREE.BoxGeometry(0.16, 0.2, 0.022); g.translate(0, 0.27, 0); g.rotateX(a); g.translate(-3.32, cyE, cz(-3.32)); inner.push(g); }
+      for (let k = 0; k < 10; k++) { const a = (k / 10) * TAU + 0.15; const g = new THREE.CylinderGeometry(0.007, 0.007, 0.2, 5); g.translate(0, 0.27, 0); g.rotateX(a); g.translate(-5.35, cyE, cz(-5.35)); inner.push(g); }
+      air(mz(mergeAll(inner)), L.burnt, { noShadow: true });
+    }
     air(mz(latheX([[-3.2, 0.2], [-3.5, 0.16], [-3.8, 0.02]], 20, { cy: cyE, cz: cz(-3.4) })), L.burnt);
     // сопло: 18 внешних створок с проставками
     const nzc = NAC(NAC_X1), petals = [], seals = [];

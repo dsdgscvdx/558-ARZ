@@ -5,10 +5,13 @@
 import * as THREE from "three";
 
 export const PAINT = {
-  camo: null, plan: null, side: null,
+  camo: null, plan: null, side: null, mark: null,
   planBox: new THREE.Vector4(), sideBox: new THREE.Vector4(),
   camoScale: 0.2, bump: 1.0, grime: 1.0,
-  under: new THREE.Color("#b3bfc6"),
+  under: new THREE.Color("#b6c0c6"),
+  // цифровой камуфляж ВВС Беларуси: светло-серая основа, серо-голубые и тёмные «пиксели»
+  c0: new THREE.Color("#aab4ba"), c1: new THREE.Color("#86929b"), c2: new THREE.Color("#5c6872"), c3: new THREE.Color("#c4ccd1"),
+  cell: 0.085,
 };
 
 const paintVert = {
@@ -16,10 +19,10 @@ const paintVert = {
   main: /* glsl */ `vOP = position; vON = normal;`,
 };
 const paintFragPars = /* glsl */ `
-uniform sampler2D uCamo; uniform sampler2D uPlan; uniform sampler2D uSide;
+uniform sampler2D uPlan; uniform sampler2D uSide; uniform sampler2D uMark;
 uniform vec4 uPlanBox; uniform vec4 uSideBox;
-uniform float uCamoScale; uniform float uCamoMix; uniform float uBump; uniform float uGrime; uniform float uUnder; uniform float uSootK;
-uniform vec3 uUnderColor; uniform vec3 uTint;
+uniform float uCamoMix; uniform float uBump; uniform float uGrime; uniform float uUnder; uniform float uSootK; uniform float uCell;
+uniform vec3 uUnderColor; uniform vec3 uTint; uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec3 uC3;
 varying vec3 vOP; varying vec3 vON;
 vec3 triW(vec3 n){ vec3 w = pow(abs(n), vec3(6.0)); return w / (w.x + w.y + w.z + 1e-5); }
 vec2 planUV(vec3 p){ return vec2((p.x - uPlanBox.x) * uPlanBox.z, (p.z - uPlanBox.y) * uPlanBox.w); }
@@ -35,6 +38,46 @@ vec3 perturbPaint(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy, float faceDir){
   vec3 vGrad = sign(fDet) * (dHdxy.x * R1 + dHdxy.y * R2);
   return normalize(abs(fDet) * surf_norm - vGrad);
 }
+/* объёмный (воксельный) цифровой камуфляж: рисунок задан в пространстве самолёта,
+   поэтому непрерывен на фюзеляже, крыле, килях и съёмных люках без растяжек и швов */
+float cHash(vec3 p){ p = fract(p * 0.3183099 + vec3(0.71, 0.113, 0.419)); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float cNoise(vec3 x){
+  vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(cHash(i), cHash(i + vec3(1,0,0)), f.x), mix(cHash(i + vec3(0,1,0)), cHash(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(cHash(i + vec3(0,0,1)), cHash(i + vec3(1,0,1)), f.x), mix(cHash(i + vec3(0,1,1)), cHash(i + vec3(1,1,1)), f.x), f.y), f.z);
+}
+float camoField(vec3 p){ p *= vec3(0.62, 1.0, 1.0); return cNoise(p * 0.85) * 0.56 + cNoise(p * 2.1 + 7.13) * 0.3 + cNoise(p * 4.6 + 3.71) * 0.14; }
+vec3 camoClass(float n, float a, float w){
+  vec3 c = uC0;
+  c = mix(c, uC1, smoothstep(0.46 - w, 0.46 + w, n));
+  c = mix(c, uC2, smoothstep(0.585 - w, 0.585 + w, n));
+  c = mix(c, uC3, smoothstep(0.76 - w, 0.76 + w, a) * (1.0 - smoothstep(0.44 - w, 0.44 + w, n)));
+  return c;
+}
+vec3 digitalCamo(vec3 p){
+  float px = max(length(dFdx(p)), length(dFdy(p))) / uCell;
+  float k = smoothstep(0.3, 1.1, px);
+  vec3 cq = vec3(0.0), cs = vec3(0.0);
+  if (k < 1.0) { vec3 cell = floor(p / uCell), q = (cell + 0.5) * uCell; float j = cHash(cell + 3.3) - 0.5;
+    cq = camoClass(camoField(q) + j * 0.09, cNoise(q * 1.7 + 40.0) + j * 0.1, 0.0005); }
+  if (k > 0.0) cs = camoClass(camoField(p), cNoise(p * 1.7 + 40.0), 0.025 + 0.02 * px);
+  return mix(cq, cs, k);
+}
+/* флаги на внешних сторонах килей и бортовой номер на воздухозаборниках (атлас uMark: слева флаг, справа номер) */
+vec4 markings(vec3 p, vec3 n){
+  vec4 o = vec4(0.0);
+  float sz = p.z >= 0.0 ? 1.0 : -1.0, az = abs(p.z);
+  float s = (p.y - 2.24) * 0.99452 + (az - 1.30) * 0.10453, t = -(p.y - 2.24) * 0.10453 + (az - 1.30) * 0.99452;
+  if (abs(t) < 0.12 && n.z * sz > 0.2) {
+    vec2 uv = vec2((-5.05 - p.x) / 0.96, (s - 0.93) / 0.48);           // древко флага — к носу на обоих бортах
+    if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) o = texture2D(uMark, vec2(uv.x * 0.5, uv.y));
+  }
+  if (az > 1.1 && n.z * sz > 0.55 && p.x > 0.8 && p.x < 1.7) {
+    vec2 uv = vec2(sz > 0.0 ? (p.x - 0.85) / 0.8 : (1.65 - p.x) / 0.8, (p.y - 1.48) / 0.42);
+    if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) { vec4 m = texture2D(uMark, vec2(0.5 + uv.x * 0.5, uv.y)); o = mix(o, m, m.a); }
+  }
+  return o;
+}
 float gSeam, gGrime, gWear, gSoot, gHC, gUp; vec3 gTW;
 `;
 const paintColor = /* glsl */ `
@@ -47,10 +90,12 @@ const paintColor = /* glsl */ `
   gGrime = PL.b * gTW.y + SD.g * (gTW.z + gTW.x);
   gWear = PL.a * gTW.y + SD.a * (gTW.z + gTW.x);
   gSoot = SD.b * uSootK;
-  vec3 cc = texture2D(uCamo, vOP.xz * uCamoScale).rgb * gTW.y + texture2D(uCamo, vOP.xy * uCamoScale + 0.37).rgb * gTW.z + texture2D(uCamo, vOP.zy * uCamoScale + 0.71).rgb * gTW.x;
+  vec3 cc = uCamoMix > 0.0 ? digitalCamo(vOP) : uTint;
   vec3 base = mix(uTint, cc, uCamoMix);
   float under = smoothstep(-0.12, -0.5, nO.y) * uUnder;
   base = mix(base, uUnderColor, under);
+  vec4 MK = uCamoMix > 0.0 ? markings(vOP, nO) : vec4(0.0);
+  base = mix(base, MK.rgb, MK.a);
   gSeam = clamp((0.5 - gHC) * 5.0, 0.0, 1.0);
   base *= 1.0 - 0.5 * gSeam;
   base *= 1.0 - gGrime * uGrime * 0.32;
@@ -79,9 +124,10 @@ export function paintMaterial(o = {}) {
       side: o.side ?? THREE.FrontSide,
     });
     const u = {
-      uCamo: { value: PAINT.camo }, uPlan: { value: PAINT.plan }, uSide: { value: PAINT.side },
-      uPlanBox: { value: PAINT.planBox }, uSideBox: { value: PAINT.sideBox },
-      uCamoScale: { value: PAINT.camoScale }, uCamoMix: { value: o.camo ?? 1 }, uBump: { value: (o.bump ?? 1) * PAINT.bump },
+      uPlan: { value: PAINT.plan }, uSide: { value: PAINT.side }, uMark: { value: PAINT.mark },
+      uPlanBox: { value: PAINT.planBox }, uSideBox: { value: PAINT.sideBox }, uCell: { value: PAINT.cell },
+      uC0: { value: PAINT.c0 }, uC1: { value: PAINT.c1 }, uC2: { value: PAINT.c2 }, uC3: { value: PAINT.c3 },
+      uCamoMix: { value: o.camo ?? 1 }, uBump: { value: (o.bump ?? 1) * PAINT.bump },
       uGrime: { value: PAINT.grime * (o.grime ?? 1) }, uUnder: { value: o.under ?? 1 }, uSootK: { value: o.soot ?? 1 },
       uUnderColor: { value: PAINT.under }, uTint: { value: new THREE.Color(o.tint || "#9aa5ad") },
     };
@@ -96,7 +142,7 @@ export function paintMaterial(o = {}) {
         .replace("#include <metalnessmap_fragment>", "#include <metalnessmap_fragment>\n" + paintMetal)
         .replace("#include <normal_fragment_maps>", "#include <normal_fragment_maps>\n" + paintNormal);
     };
-    m.customProgramCacheKey = () => "paint-v2";
+    m.customProgramCacheKey = () => "paint-v3";
     m.userData.factory = make;
     return m;
   };

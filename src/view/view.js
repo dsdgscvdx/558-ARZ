@@ -3,11 +3,11 @@ import * as THREE from "three";
 import { Render, QUALITY } from "./render.js";
 import * as T from "./tex.js";
 import { buildLibrary, cloneMat, PAINT } from "./materials.js";
-import { buildPaintMaps } from "./mig29paint.js";
+import { buildPaintMaps, drawBort } from "./mig29paint.js";
 import { buildMig29 } from "./mig29.js";
 import { buildWorld, H, PAD, SUN_DIR } from "./hangar.js";
 import { makeFlame, Particles, makeDust, makeBeam } from "./effects.js";
-import { boardNumberCanvas, flagCanvas, stencilCanvas, decal, decalMaterial, texFromCanvas } from "./decals.js";
+import { stencilCanvas, decal, decalMaterial, texFromCanvas } from "./decals.js";
 import { buildTechnician, buildViewmodel } from "./character.js";
 import { NAC, NAC_X1, FIN, CANOPY } from "./mig29dims.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
@@ -103,16 +103,8 @@ function buildDecals(M, L) {
   const mesh = M.airframeMeshes.find((m) => m.material.userData.paint && m.material.userData.paint.uCamoMix.value === 1 && m.geometry.attributes.position.count > 20000) || M.airframeMeshes[0];
   mesh.updateMatrixWorld(true);
   const add = (d) => { d.castShadow = false; M.group.add(d); return d; };
-  V.bortCanvas = boardNumberCanvas("23");
-  V.bortTex = texFromCanvas(V.bortCanvas);
-  const bortMat = decalMaterial(V.bortTex, 0.5);
+  // флаги на килях и бортовой номер рисуются шейдером окраски (mig29paint.js → PAINT.mark)
   for (const s of [1, -1]) {
-    const p = NAC(1.25), z = (p.cz + p.w) * s;
-    add(decal(mesh, new THREE.Vector3(1.25, p.cy + 0.08, z), new THREE.Vector3(0, 0, s), new THREE.Vector3(s, 0, 0), 0.8, 0.42, bortMat, 0.4));
-    // флаги на килях
-    const c = Math.cos(FIN.cant), sn = Math.sin(FIN.cant), sv = 1.15;
-    const fp = new THREE.Vector3(-5.35, FIN.y0 + sv * c, (FIN.z + sv * sn) * s), fn = new THREE.Vector3(0, -sn, c * s);
-    add(decal(mesh, fp, fn, new THREE.Vector3(s, 0, 0), 0.95, 0.52, decalMaterial(texFromCanvas(flagCanvas())), 0.4));
     // трафареты
     const st = (k) => decalMaterial(texFromCanvas(stencilCanvas(k)));
     add(decal(mesh, new THREE.Vector3(3.95, 2.42, 0.64 * s), new THREE.Vector3(0, 0.1, s), new THREE.Vector3(s, 0, 0), 0.22, 0.11, st("danger")));
@@ -368,8 +360,7 @@ export function syncPlane(isOn, bort) {
 }
 export function setBort(txt) {
   if (V._bort === txt) return; V._bort = txt;
-  const c = boardNumberCanvas(txt), g = V.bortCanvas.getContext("2d");
-  g.clearRect(0, 0, c.width, c.height); g.drawImage(c, 0, 0); V.bortTex.needsUpdate = true;
+  drawBort(txt);
 }
 export function animPart(id, removing) {
   const p = V.parts[id]; p.group.visible = true;
