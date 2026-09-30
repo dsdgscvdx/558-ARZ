@@ -51,8 +51,18 @@ function bulkheadTexture() {
 export function engineBay() {
   const t0 = COWL.t1 - 0.04, t1 = COWL.t0 + TAU + 0.04, ts = range(t0, t1, 30);
   const pt = (x, t, ins) => { const p = NAC(x); const q = { ...p, w: p.w - ins, ht: p.ht - ins, hb: p.hb - ins }; const [y, z] = sePoint(q, t); return [x, y, z]; };
-  // обшивка изнутри (только верхняя часть — нижняя открыта снятым капотом)
-  const liner = gridSurface((x, t) => pt(x, t, 0.02), range(COWL.x0 - 0.04, COWL.x1 + 0.04, 22), ts);
+  // обшивка изнутри (только верхняя часть — нижняя открыта снятым капотом): спереди грунт,
+  // над камерой сгорания и турбиной — стёганые теплозащитные маты
+  const XS = -1.55;
+  const liner = gridSurface((x, t) => pt(x, t, 0.02), range(XS, COWL.x1 + 0.04, 9), ts);
+  const shield = gridSurface((x, t) => pt(x, t, 0.024), range(COWL.x0 - 0.04, XS, 16), ts);
+  // противопожарный коллектор с распылителями вдоль верха отсека и петля сигнализатора пожара по бортам
+  const fire = [tube(range(-0.3, -4.1, 10).map((x) => pt(x, TAU, 0.075)), 0.011, 60, 8)];
+  for (let x = -0.55; x > -4.0; x -= 0.42) { const [px, py, pz] = pt(x, TAU, 0.075); fire.push(cyl(0.007, 0.009, 0.05, "y", px, py - 0.03, pz, 8)); }
+  const det = [], detPts = [];
+  for (const t of [COWL.t1 + 0.62, COWL.t0 + TAU - 0.62]) {
+    const p = range(-0.25, -4.15, 12).map((x) => pt(x, t, 0.045)); detPts.push(p); det.push(tube(p, 0.0045, 70, 5));
+  }
   // шпангоуты: стенка и полка
   const frames = [];
   for (const x of [-0.35, -1.25, -2.2, -3.15, -4.05]) {
@@ -71,7 +81,8 @@ export function engineBay() {
   const harness = [tube(wallRun(COWL.t1 + 0.25, 0.08, -0.2, -4.2), 0.014, 50, 6), tube(wallRun(COWL.t0 + TAU - 0.2, 0.085, -0.2, -3.6), 0.012, 50, 6)];
   const pipes = [tube(wallRun(COWL.t1 + 0.45, 0.085, -0.3, -4.0), 0.01, 50, 6), tube(wallRun(COWL.t0 + TAU - 0.45, 0.09, -0.5, -3.9), 0.008, 50, 6)];
   const clampsG = [...clamps(wallRun(COWL.t1 + 0.25, 0.08, -0.2, -4.2), 0.014, 7), ...clamps(wallRun(COWL.t0 + TAU - 0.2, 0.085, -0.2, -3.6), 0.012, 6)];
-  return { liner, frames: mergeAll([...frames, ...str]), mounts: mergeAll(mounts), harness: mergeAll(harness), pipes: mergeAll(pipes), clamps: mergeAll(clampsG) };
+  for (const p of detPts) clampsG.push(...clamps(p, 0.0045, 9));
+  return { liner, shield, fire: mergeAll(fire), detector: mergeAll(det), frames: mergeAll([...frames, ...str]), mounts: mergeAll(mounts), harness: mergeAll(harness), pipes: mergeAll(pipes), clamps: mergeAll(clampsG) };
 }
 /* обвязка двигателя (входит в снимаемые узлы компрессора и турбины) */
 export function engineDressing(cyE, cz) {

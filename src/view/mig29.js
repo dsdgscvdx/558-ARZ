@@ -14,6 +14,7 @@ import { buildMainGear, buildNoseGear } from "./gear.js";
 import { buildDetails, perforatedMaterial, removeFlagMaterial, streamer, stabDischargers } from "./details.js";
 import { engineBay, radarUnits, avBayUnits, hydroBayUnits } from "./bays.js";
 import { buildRD33, rd33Materials, rd33Meshes, placeInNacelle } from "./rd33.js";
+import { upperFillets, nacelleFillets, upperY } from "./fillets.js";
 
 const TAU = Math.PI * 2;
 const angIn = (t, a, b) => { const d = (((t - a) % TAU) + TAU) % TAU; return d <= b - a + 1e-6; };
@@ -99,18 +100,18 @@ export function buildMig29(L, { detail = 1 } = {}) {
     const XT = 8.3, xsR = range(CORE_X0, XT, 30), R = 0.52;
     const rad = gridSurface((x, t) => {
       const u = (x - CORE_X0) / (XT - CORE_X0);
-      const r = R * Math.pow(Math.max(0, 1 - Math.pow(u, 1.55)), 0.72) + 0.004;
-      const cy = 2.06 - 0.1 * u * u;
+      const r = R * Math.pow(Math.max(0, 1 - Math.pow(u, 1.45)), 0.8) + 0.004;
+      const cy = 2.06 - 0.13 * u * u;                                // обтекатель опущен вниз
       return [x, cy + r * Math.cos(t), r * Math.sin(t)];
     }, xsR.slice().reverse(), angles(64), { closedV: true });
     part("radome", [[rad, L.radome]], V(2.2, 0, 0));
     const pit = [
-      [mergeAll([cyl(0.034, 0.02, 1.15, "x", 8.85, 1.96, 0, 12), cyl(0.022, 0.022, 0.16, "x", 9.5, 1.96, 0, 10), cyl(0.012, 0.012, 0.05, "x", 9.605, 1.96, 0, 8)]), L.steel],
-      [mergeAll([box(0.06, 0.004, 0.05, 8.72, 1.96, 0.045, 0, 0, 0), box(0.06, 0.05, 0.004, 8.72, 2.0, 0, 0, 0, 0)]), L.black],
-      [cyl(0.036, 0.036, 0.06, "x", 8.29, 1.96, 0, 12), L.steelDark],
+      [mergeAll([cyl(0.034, 0.02, 1.15, "x", 8.85, 1.93, 0, 12), cyl(0.022, 0.022, 0.16, "x", 9.5, 1.93, 0, 10), cyl(0.012, 0.012, 0.05, "x", 9.605, 1.93, 0, 8)]), L.steel],
+      [mergeAll([box(0.06, 0.004, 0.05, 8.72, 1.93, 0.045, 0, 0, 0), box(0.06, 0.05, 0.004, 8.72, 1.97, 0, 0, 0, 0)]), L.black],
+      [cyl(0.036, 0.036, 0.06, "x", 8.29, 1.93, 0, 12), L.steelDark],
       // чехол ПВД с красной лентой (самолёт на стоянке)
-      [mergeAll([cyl(0.03, 0.03, 0.24, "x", 9.53, 1.96, 0, 12), sphere(0.03, 9.65, 1.96, 0, 0.6, 1, 1, 12, 8)]), redCloth],
-      [streamer([9.47, 1.935, 0.0], 0.3, 0.034, 0.25), flagMat],
+      [mergeAll([cyl(0.03, 0.03, 0.24, "x", 9.53, 1.93, 0, 12), sphere(0.03, 9.65, 1.93, 0, 0.6, 1, 1, 12, 8)]), redCloth],
+      [streamer([9.47, 1.905, 0.0], 0.3, 0.034, 0.25), flagMat],
     ];
     part("pitot", pit, V(1.2, 0.15, 0), { noShadow: true });
   }
@@ -202,7 +203,8 @@ export function buildMig29(L, { detail = 1 } = {}) {
   {
     const B = engineBay();
     for (const mz of [(g) => g, mirrorZ]) {
-      air(mz(B.liner), L.primer); air(mz(B.frames), L.primerGrey); air(mz(B.mounts), L.steelDark);
+      air(mz(B.liner), L.primer); air(mz(B.shield), L.heatShield); air(mz(B.fire), L.steel); air(mz(B.detector), L.brass);
+      air(mz(B.frames), L.primerGrey); air(mz(B.mounts), L.steelDark);
       air(mz(B.harness), L.wireBlack); air(mz(B.pipes), L.steel); air(mz(B.clamps), L.steelDark);
     }
   }
@@ -212,7 +214,7 @@ export function buildMig29(L, { detail = 1 } = {}) {
     const inPt = (x, t) => { const p = NAC(Math.min(x, NAC_X0)); const q = { ...p, w: p.w - inset, ht: p.ht - inset, hb: p.hb - inset }; const [y, z] = sePoint(q, t); const f = Math.max(0, Math.min(1, (x - 1.55) / (NAC_X0 - 1.55))); return [x + INTAKE_SLOPE * (y - p.cy) * f, y, z]; };
     const duct = gridSurface(inPt, range(NAC_X0, 1.1, 12), nth, { closedV: true, flip: true });
     const lip = gridSurface((k, t) => (k ? inPt(NAC_X0, t) : nacPoint(NAC_X0, t)), [0, 1], nth, { closedV: true });
-    const plate = (() => { const p = NAC(1.6); const g = new THREE.PlaneGeometry((p.w - inset) * 2, p.ht + p.hb - 0.06); g.rotateY(-Math.PI / 2); g.rotateZ(-0.35); g.translate(1.6, p.cy, p.cz); return g; })();
+    const plate = (() => { const p = NAC(1.6); const g = new THREE.PlaneGeometry((p.w - inset) * 2, p.ht + p.hb - 0.06); g.rotateY(-Math.PI / 2); g.rotateZ(-Math.atan(INTAKE_SLOPE)); g.translate(1.6, p.cy, p.cz); return g; })();
     air(duct, L.intakeDark); air(mirrorZ(duct), L.intakeDark);
     air(lip, L.aluDark); air(mirrorZ(lip), L.aluDark);
     const perf = perforatedMaterial(); air(plate, perf); air(mirrorZ(plate), perf);
@@ -294,6 +296,8 @@ export function buildMig29(L, { detail = 1 } = {}) {
   /* ═══════════ наплывы и крыло ═══════════ */
   const wingR = airfoilSurface(WING_SECTIONS, (x, y, s) => [x, y, s], { M: 26 });
   air(wingR, L.paint, { collide: true }); air(mirrorZ(wingR), L.paint, { collide: true });
+  // зализы: гаргрот стекает на наплывы, мотогондолы сливаются с нижней поверхностью крыла
+  air(upperFillets(detail), L.paint, { collide: true }); air(nacelleFillets(detail), L.paint);
   // законцовки: огни
   for (const s of [1, -1]) {
     const tip = WING_SECTIONS[WING_SECTIONS.length - 1];
@@ -316,7 +320,7 @@ export function buildMig29(L, { detail = 1 } = {}) {
     // антенны на законцовках
     const ant = place(new THREE.CylinderGeometry(0.03, 0.03, 0.34, 10), -6.35, FIN.y0 + 2.42 * c, FIN.z + 2.42 * sn, 0, 0, Math.PI / 2);
     air(ant, L.dielectric); air(mirrorZ(ant), L.dielectric);
-    const tl = new THREE.Mesh(sphere(0.03, -8.06, 2.18, 0), L.navWhite); plane.add(tl); lights.tail = tl;
+    const tl = new THREE.Mesh(sphere(0.03, -7.83, 2.18, 0), L.navWhite); plane.add(tl); lights.tail = tl;
   }
 
   /* ═══════════ стабилизаторы (цельноповоротные, группы вращения) ═══════════ */
@@ -384,15 +388,7 @@ export function coreTopY(x, z) {
   return p.cy + p.ht * Math.pow(cosT, 2 / p.nt);
 }
 /* верх наплыва/крыла в точке (x,|z|) — для деталей, лежащих на поверхности */
-export function wingTopY(x, z) {
-  const S = WING_SECTIONS;
-  let i = 0; while (i < S.length - 2 && S[i + 1].s < z) i++;
-  const a = S[i], b = S[i + 1], k = Math.max(0, Math.min(1, (z - a.s) / (b.s - a.s)));
-  const le = a.le + (b.le - a.le) * k, c = a.c + (b.c - a.c) * k, t = a.t + (b.t - a.t) * k, off = a.off + (b.off - a.off) * k;
-  const xc = Math.max(0.001, Math.min(1, (le - x) / c));
-  const half = 5 * t * (0.2969 * Math.sqrt(xc) - 0.126 * xc - 0.3516 * xc * xc + 0.2843 * xc ** 3 - 0.1036 * xc ** 4) * c;
-  return off + half;
-}
+export function wingTopY(x, z) { return upperY(x, z); }
 /* капот — заплатка на поверхности мотогондолы */
 function sectionPatchNac(x0, x1, t0, t1) {
   const xs = range(x0, x1, 24), ts = range(t0, t1, 18);

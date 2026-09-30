@@ -35,7 +35,7 @@ export async function initView(canvas, quality, progress = () => {}) {
   progress(0.05, "Процедурные текстуры…"); await nextFrame();
   const TX = {};
   TX.paintedMetal = T.paintedMetalSet(); TX.brushed = T.brushedSet(); TX.tire = T.tireSet(); TX.heat = T.heatTintSet();
-  TX.fabric = T.fabricSet(); TX.smudge = T.smudgeOrm(); TX.wood = T.woodTex();
+  TX.fabric = T.fabricSet(); TX.smudge = T.smudgeOrm(); TX.wood = T.woodTex(); TX.quilt = T.quiltSet();
   progress(0.15, "Бетонный пол ангара…"); await nextFrame();
   TX.floor = T.floorSet(); TX.floorMacro = T.floorMacro();
   progress(0.3, "Профнастил, перрон…"); await nextFrame();
@@ -178,14 +178,14 @@ function buildNPCs(TX) {
   const p2 = V.plane2;
   const at = (lx, lz) => (p2 ? p2.localToWorld(new THREE.Vector3(lx, 0, lz)) : new THREE.Vector3(-17.5 + lx * 0.3, 0, -9.5 + lz));
   const list = [
-    { name: "Мастер участка Жук", pos: new THREE.Vector3(-12.2, 0, -20.35), face: new THREE.Vector3(0, 0, -1), work: 1, crouch: 0, suit: "#2e3a48" },
-    { name: "Слесарь Ковалёв", pos: at(7.6, 0.75), faceTo: at(6.6, 0.1), work: 1, crouch: 0, suit: "#34424f" },
-    { name: "Техник Лукашевич", pos: at(-0.9, 2.45), faceTo: at(-0.75, 1.6), work: 0.6, crouch: 1, suit: "#2b3542" },
-    { name: "Контролёр ОТК Савицкая", pos: new THREE.Vector3(-26.4, 0, 14.6), face: new THREE.Vector3(0.2, 0, -1), work: 0, crouch: 0, suit: "#d9dcdc", cap: "#e6e8e8" },
+    { name: "Мастер участка Жук", pos: new THREE.Vector3(-12.2, 0, -20.35), face: new THREE.Vector3(0, 0, -1), work: 1, crouch: 0, suit: "#2e3a48", mustache: true, hair: "#5a4d44", skin: "#c49a7e" },
+    { name: "Слесарь Ковалёв", pos: at(7.6, 0.75), faceTo: at(6.6, 0.1), work: 1, crouch: 0, suit: "#34424f", skin: "#cf9f80", hair: "#2b211b" },
+    { name: "Техник Лукашевич", pos: at(-0.9, 2.45), faceTo: at(-0.75, 1.6), work: 0.6, crouch: 1, suit: "#2b3542", skin: "#d6ae90", hair: "#8a6a48" },
+    { name: "Контролёр ОТК Савицкая", pos: new THREE.Vector3(-26.4, 0, 14.6), face: new THREE.Vector3(0.2, 0, -1), work: 0, crouch: 0, suit: "#d9dcdc", cap: "#e6e8e8", female: true, skin: "#dcb49a", hair: "#6e4e34" },
   ];
   for (const n of list) {
     if (!p2 && n.faceTo) continue;            // без второго самолёта этим двоим нечего делать
-    const t = buildTechnician(TX, { suit: n.suit, cap: n.cap });
+    const t = buildTechnician(TX, n);
     const f = n.face ? n.face.clone() : n.faceTo.clone().sub(n.pos).setY(0).normalize();
     t.root.position.copy(n.pos); t.root.rotation.y = Math.atan2(f.x, f.z);
     V.scene.add(t.root);
@@ -273,9 +273,9 @@ function captureEnvs() {
   // ангар: ворота открыты, солнечные пятна на полу
   placeSun(new THREE.Vector3(0, 0, 0), 40); V.sun.intensity = 7; V.key.intensity = 2.1;
   V.scene.environment = null;
-  V.envHangar = V.R.captureEnv(new THREE.Vector3(2, 4.5, 0), hide, 256);
+  V.envHangar = V.R.captureEnv(new THREE.Vector3(2, 4.5, 0), hide);
   placeSun(new THREE.Vector3(PAD.x, 0, PAD.z), 26);
-  V.envPad = V.R.captureEnv(new THREE.Vector3(PAD.x, 3, PAD.z), hide, 256);
+  V.envPad = V.R.captureEnv(new THREE.Vector3(PAD.x, 3, PAD.z), hide);
   V.envHangar = envSanity(V.envHangar, new THREE.Vector3(2, 4.5, 0));
   V.envPad = envSanity(V.envPad, new THREE.Vector3(PAD.x, 3, PAD.z));
 }
@@ -296,7 +296,7 @@ function envSanity(env, at) {
 export function recaptureHangarEnv() {
   if (V.world !== "hangar") return;
   const hide = [V.M.group, V.tech.root, V.fx.fire.points, V.fx.smoke.points, V.marker, ...(V.fx.beams || []), V.fx.dust, V.plane2].filter(Boolean);
-  const old = V.envHangar; V.envHangar = envSanity(V.R.captureEnv(new THREE.Vector3(2, 4.5, 0), hide, 256), null);
+  const old = V.envHangar; V.envHangar = envSanity(V.R.captureEnv(new THREE.Vector3(2, 4.5, 0), hide), null);
   V.scene.environment = V.envHangar; if (old) old.dispose();
 }
 
@@ -500,6 +500,8 @@ export function stepOrbit(dt, reduceMotion) {
   if (cam.position.y < 0.25) cam.position.y = 0.25;
   if (V.world === "hangar") { cam.position.x = clamp(cam.position.x, H.x0 + 0.8, H.x1 + 60); cam.position.z = clamp(cam.position.z, -H.z + 0.8, H.z - 0.8); cam.position.y = Math.min(cam.position.y, H.eave - 0.5); }
   cam.up.set(0, 1, 0); cam.lookAt(orbit.t);
+  // в режиме обзора — глубина резкости с фокусом на точке обзора
+  const ds = V.R.dofState; ds.focus = cam.position.distanceTo(orbit.t); ds.aperture = THREE.MathUtils.clamp(ds.focus * 0.09, 0.35, 1.1); ds.until = V.R.time + 0.2;
 }
 
 /* ═════════════ планарное отражение пола ангара ═════════════ */

@@ -568,7 +568,7 @@ function loop(t) {
     // персонаж от третьего лица
     if (player.third && mode === "walk") {
       const tr = V.tech.root; tr.visible = true; tr.position.copy(player.pos); tr.rotation.y = player.bodyYaw + Math.PI;
-      V.tech.animate({ speed: player.speed, crouch: player.crouch, work: working ? 1 : 0, ladder: player.mode === "ladder" ? 1 : 0, dt, lookPitch: player.pitch });
+      V.tech.animate({ speed: player.speed, crouch: player.crouch, work: working && working.kind !== "visual" ? 1 : 0, tool: working ? working.kind : null, ladder: player.mode === "ladder" ? 1 : 0, dt, lookPitch: player.pitch });
     } else V.tech.root.visible = false;
     // прицел
     const t2 = aimTarget(); setHoverTarget(t2); promptFor(t2);

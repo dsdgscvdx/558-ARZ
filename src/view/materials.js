@@ -191,6 +191,9 @@ export function buildLibrary(T) {
     jetpipe: S({ color: "#2e2b28", roughness: 0.75, metalness: 0.7, side: THREE.DoubleSide }),
     bronze: S({ color: "#9c7a4f", roughness: 0.38, metalness: 1 }),
     burnt: S({ color: "#8a7562", roughness: 0.6, metalness: 0.75 }),
+    // теплозащитные маты отсека двигателя (алюминиевая фольга, простёганная подушками)
+    heatShield: (() => { const n = T.quilt.normal.clone(), o = T.quilt.orm.clone(); for (const t of [n, o]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(11, 7); t.needsUpdate = true; }
+      return S({ color: "#c3c6c7", roughness: 1, metalness: 1, normalMap: n, normalScale: new THREE.Vector2(1.1, 1.1), roughnessMap: o, metalnessMap: o, side: THREE.DoubleSide }); })(),
     engineAlu: S({ color: "#b4b8ba", roughness: 0.58, metalness: 0.75, normalMap: T.brushed.normal, normalScale: new THREE.Vector2(0.3, 0.3) }),
     tire: S({ color: "#1d1d1e", roughness: 1, metalness: 0, roughnessMap: T.tire.orm, normalMap: T.tire.normal, normalScale: new THREE.Vector2(1.2, 1.2) }),
     rubber: S({ color: "#161616", roughness: 0.88, metalness: 0 }),

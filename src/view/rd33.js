@@ -32,10 +32,10 @@ export function rd33Materials(L) {
   const S = (o) => new THREE.MeshStandardMaterial(o);
   const brushed = L.alu.normalMap;
   return {
-    casing: S({ color: "#aeb4b7", roughness: 0.42, metalness: 0.85, normalMap: brushed, normalScale: new THREE.Vector2(0.25, 0.25) }),
-    ti: S({ color: "#9ba2a8", roughness: 0.38, metalness: 0.9, normalMap: brushed, normalScale: new THREE.Vector2(0.25, 0.25) }),
-    hot: S({ color: "#8f7a66", roughness: 0.5, metalness: 0.85 }),
-    hot2: S({ color: "#6f6760", roughness: 0.55, metalness: 0.8 }),
+    casing: S({ color: "#b3b8ba", roughness: 0.46, metalness: 0.62, normalMap: brushed, normalScale: new THREE.Vector2(0.25, 0.25) }),
+    ti: S({ color: "#a4aab0", roughness: 0.4, metalness: 0.7, normalMap: brushed, normalScale: new THREE.Vector2(0.25, 0.25) }),
+    hot: S({ color: "#ffffff", vertexColors: true, roughness: 0.46, metalness: 0.68, normalMap: brushed, normalScale: new THREE.Vector2(0.15, 0.15) }),
+    hot2: S({ color: "#ffffff", vertexColors: true, roughness: 0.55, metalness: 0.8 }),
     abpipe: S({ map: L.titanium.map, roughnessMap: L.titanium.roughnessMap, metalnessMap: L.titanium.metalnessMap, color: "#a9a49c", roughness: 1, metalness: 1 }),
     bolts: S({ color: "#c9cdd0", roughness: 0.3, metalness: 1 }),
     pipe: S({ color: "#c6cacc", roughness: 0.28, metalness: 1 }),
@@ -76,13 +76,50 @@ function rodBetween(a, b, r, seg = 8) {
   return g;
 }
 
+/* побежалость горячей части: цвет вершин по осевой координате (соломенный → бронза → фиолетовый →
+   синий → серый) с полосами от 24 форсунок и пятнами */
+const TINT = {
+  hot: [[-1.45, "#a8a196"], [-1.6, "#b39c6c"], [-1.78, "#a6784e"], [-1.95, "#7c5870"], [-2.12, "#58668e"], [-2.32, "#6d7a89"], [-2.6, "#6c6762"]],
+  hot2: [[-2.5, "#6f6a66"], [-2.72, "#5f657a"], [-2.95, "#7a6a5b"], [-3.35, "#5f5752"], [-4.4, "#4f4a45"]],
+};
+const _c = new THREE.Color(), _d = new THREE.Color();
+function heatTint(g, stops, rnd) {
+  const p = g.attributes.position, col = new Float32Array(p.count * 3);
+  const lin = stops.map(([x, h]) => [x, new THREE.Color(h)]);
+  const ph = rnd() * TAU;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), a = Math.atan2(p.getZ(i), p.getY(i));
+    const xs = x + 0.035 * Math.sin(24 * a + ph) + 0.02 * Math.sin(7 * a + x * 9);
+    let k = 0; while (k < lin.length - 2 && xs < lin[k + 1][0]) k++;
+    const [x0, c0] = lin[k], [x1, c1] = lin[k + 1], t = Math.max(0, Math.min(1, (xs - x0) / (x1 - x0)));
+    _c.copy(c0).lerp(c1, t);
+    const n = 0.93 + 0.07 * Math.sin(a * 31 + x * 57) * Math.sin(a * 13 - x * 23);
+    _d.copy(_c).multiplyScalar(n);
+    col[i * 3] = _d.r; col[i * 3 + 1] = _d.g; col[i * 3 + 2] = _d.b;
+  }
+  g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+}
+/* деталь «на корпусе»: геометрия построена с радиальным направлением +Y, ставится на угол a, радиус r */
+function onCasing(g, x, a, r) { g.translate(0, r, 0); g.rotateX(a); g.translate(x, 0, 0); return g; }
+const polar = (x, a, r) => [x, Math.cos(a) * r, Math.sin(a) * r];
+/* шестигранная гайка на трубе в точке p по направлению d */
+function nutAt(p, d, r) {
+  const g = new THREE.CylinderGeometry(r, r, r * 1.6, 6);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d)); g.translate(p.x, p.y, p.z);
+  return g;
+}
+
 /* opts: { ab: true — форсажная камера и сопло (для запасного двигателя), detail: 0.5..1 }
    → { groups: { comp|turb|ab: { matKey: [geo] } } } */
 export function buildRD33({ ab = false, detail = 1, seed = 33, accessories = true } = {}) {
   const rnd = mulberry32(seed);
   const secs = ab ? [...SECTIONS, ...AB_SECTIONS] : SECTIONS;
   const G = {};
-  const add = (grp, key, g) => { if (!g) return; (G[grp] = G[grp] || {}); (G[grp][key] = G[grp][key] || []).push(g); };
+  const add = (grp, key, g) => {
+    if (!g) return;
+    if (TINT[key]) heatTint(g, TINT[key], rnd);
+    (G[grp] = G[grp] || {}); (G[grp][key] = G[grp][key] || []).push(g);
+  };
   const seg = Math.round(40 * detail);
 
   /* ── корпуса ── */
@@ -180,7 +217,7 @@ export function buildRD33({ ab = false, detail = 1, seed = 33, accessories = tru
   P("turb", "pipe", 2.4, 2.3, -1.5, -2.85, 0.03, 0.011); P("turb", "copper", 3.6, 3.8, -1.5, -2.85, 0.035, 0.008);
   P("turb", "pipe", -2.5, -2.7, -1.5, -2.8, 0.03, 0.013);
   // трубы охлаждения турбины (воздух из-за КВД)
-  for (const th of [0.6, 1.8, 3.0, 4.2, 5.4]) P("turb", "pipe", th, th + 0.15, -1.48, -2.3, 0.06, 0.016);
+  for (const th of [0.6, 1.8, 3.0, 4.2, 5.4]) P("turb", "pipe", th, th + 0.15, -1.48, -2.3, 0.03, 0.016);
   // жгуты
   P("comp", "harness", 2.9, 3.1, -0.05, -1.45, 0.04, 0.014); P("comp", "harnessO", -2.75, -2.9, -0.2, -1.45, 0.045, 0.011);
   P("turb", "harness", 2.9, 3.0, -1.5, -2.8, 0.05, 0.014); P("turb", "harnessO", -2.9, -3.0, -1.5, -2.6, 0.055, 0.01);
@@ -193,7 +230,113 @@ export function buildRD33({ ab = false, detail = 1, seed = 33, accessories = tru
     const st = [];
     for (let i = 3; i < pts.length - 1; i += 4) { const [x, y, z] = pts[i], l = Math.hypot(y, z), k = (l - d.off - d.r) / l; st.push(rodBetween([x, y * k, z * k], [x, y, z], 0.004, 4)); }
     if (st.length) add(d.grp, "clamp", mergeAll(st));
-    void rnd;
+    // концы: у трубок — штуцер с накидной гайкой, уходящий в бобышку корпуса; у жгутов — штепсельные разъёмы
+    const ends = [], plugs = [], wire = d.key.startsWith("harness");
+    for (const [i0, i1] of [[0, 1], [pts.length - 1, pts.length - 2]]) {
+      const A = new THREE.Vector3(...pts[i0]), B = new THREE.Vector3(...pts[i1]), dir = B.clone().sub(A).normalize();
+      const l = Math.hypot(A.y, A.z), rc = l - d.off - d.r, a = Math.atan2(A.z, A.y);
+      if (wire) {
+        const g = new THREE.CylinderGeometry(d.r * 1.9, d.r * 1.9, 0.05, 12);
+        g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)); g.translate(A.x, A.y, A.z); plugs.push(g);
+        plugs.push(onCasing(new THREE.BoxGeometry(0.05, 0.02, 0.05), A.x, a, rc + 0.01));
+      } else {
+        ends.push(nutAt(A.clone().addScaledVector(dir, 0.012), dir, d.r * 1.9));
+        ends.push(rodBetween(polar(A.x, a, rc), [A.x, A.y, A.z], d.r, 6));
+        ends.push(onCasing(new THREE.CylinderGeometry(d.r * 2.4, d.r * 2.8, 0.012, 8), A.x, a, rc + 0.004));
+      }
+    }
+    if (ends.length) add(d.grp, "clamp", mergeAll(ends));
+    if (plugs.length) add(d.grp, d.key === "harnessO" ? "olive" : "unitDark", mergeAll(plugs));
+  }
+
+  /* ── КВД: поворотные направляющие аппараты — кольца синхронизации, рычаги цапф, привод ── */
+  {
+    const rings = [], levers = [], bosses = [], nL = Math.max(18, Math.round(34 * detail)), aAct = 2.05;
+    const XV = [-0.92, -1.07, -1.22];
+    for (const x of XV) {
+      const rc = rAt(x, secs), rr = rc + 0.04;
+      rings.push(torus(rr, 0.0075, "x", x - 0.032, 0, 0, 5, Math.round(72 * detail)));
+      for (let k = 0; k < nL; k++) {
+        const a = (k / nL) * TAU + 0.04;
+        bosses.push(onCasing(new THREE.CylinderGeometry(0.0095, 0.012, 0.016, 6), x, a, rc + 0.006));
+        levers.push(rodBetween(polar(x, a, rc + 0.013), polar(x - 0.032, a, rr), 0.0032, 4));
+      }
+    }
+    add("comp", "ti", mergeAll(bosses)); add("comp", "clamp", mergeAll(levers)); add("comp", "casing", mergeAll(rings));
+    // вал синхронизации с рычагами к кольцам и опорами
+    const rs = rAt(-1.07, secs) + 0.085, sh = [rodBetween(polar(-0.86, aAct, rs), polar(-1.28, aAct, rs), 0.011, 10)];
+    for (const x of XV) { sh.push(rodBetween(polar(x - 0.032, aAct, rs), polar(x - 0.032, aAct - 0.03, rAt(x, secs) + 0.04), 0.006, 5)); sh.push(cyl(0.017, 0.017, 0.028, "x", x - 0.032, Math.cos(aAct) * rs, Math.sin(aAct) * rs, 10)); }
+    for (const x of [-0.88, -1.26]) sh.push(rodBetween(polar(x, aAct, rAt(x, secs)), polar(x, aAct, rs), 0.009, 6));
+    add("comp", "casing", mergeAll(sh));
+    // гидроцилиндр привода: корпус, крышки, шток, качалка, трубки
+    const ra = rAt(-0.74, secs) + 0.055, Y = Math.cos(aAct) * ra, Z = Math.sin(aAct) * ra;
+    add("comp", "unit", mergeAll([cyl(0.02, 0.02, 0.2, "x", -0.74, Y, Z, 14), cyl(0.024, 0.024, 0.024, "x", -0.64, Y, Z, 14), cyl(0.024, 0.024, 0.024, "x", -0.84, Y, Z, 14)]));
+    add("comp", "chrome", cyl(0.0075, 0.0075, 0.1, "x", -0.9, Y, Z, 8));
+    add("comp", "casing", mergeAll([rodBetween(polar(-0.95, aAct, ra), polar(-0.95, aAct, rs), 0.01, 6), rodBetween(polar(-0.64, aAct, rAt(-0.64, secs)), polar(-0.64, aAct, ra), 0.01, 6)]));
+    add("comp", "pipe", mergeAll([tube([polar(-0.66, aAct + 0.05, ra), polar(-0.55, aAct + 0.1, ra + 0.01), polar(-0.3, aAct + 0.14, rAt(-0.3, secs) + 0.04)], 0.006, 16, 6),
+      tube([polar(-0.82, aAct + 0.05, ra), polar(-0.7, aAct + 0.14, ra), polar(-0.3, aAct + 0.19, rAt(-0.3, secs) + 0.035)], 0.006, 16, 6)]));
+  }
+
+  /* ── клапаны перепуска воздуха КВД с патрубками ── */
+  for (const a of [1.62, 4.66]) {
+    const x = -1.36, rc = rAt(x, secs);
+    add("comp", "casing", mergeAll([onCasing(new THREE.CylinderGeometry(0.05, 0.055, 0.04, 16), x, a, rc + 0.02), onCasing(new THREE.CylinderGeometry(0.036, 0.05, 0.028, 16), x, a, rc + 0.054)]));
+    add("comp", "unitDark", onCasing(rbox(0.07, 0.035, 0.05, 0.008, 0, 0, 0), x + 0.075, a, rc + 0.03));
+    add("comp", "pipe", tube([polar(x, a, rc + 0.05), polar(x - 0.06, a + 0.04, rc + 0.07), polar(x - 0.13, a + 0.08, rc + 0.07)], 0.02, 12, 10));
+    add("comp", "clamp", torus(0.024, 0.005, "x", x - 0.13, Math.cos(a + 0.08) * (rc + 0.07), Math.sin(a + 0.08) * (rc + 0.07), 5, 14));
+  }
+
+  /* ── агрегаты зажигания с высоковольтными проводами к запальникам ── */
+  for (const [a, ai] of [[2.36, 2.2], [3.92, 4.1]]) {
+    const x = -1.3, rc = rAt(x, secs);
+    add("comp", "olive", onCasing(rbox(0.16, 0.055, 0.1, 0.012, 0, 0, 0), x, a, rc + 0.034));
+    add("comp", "unitDark", mergeAll([onCasing(new THREE.CylinderGeometry(0.014, 0.014, 0.03, 10), x - 0.05, a + 0.08, rc + 0.07), onCasing(new THREE.BoxGeometry(0.2, 0.01, 0.12), x, a, rc + 0.006)]));
+    const rI = rAt(-1.8, secs) + 0.07;
+    add("comp", "harnessO", tube([polar(x - 0.06, a, rc + 0.07), polar(x - 0.2, a, rc + 0.07), polar(-1.62, (a + ai) / 2, rAt(-1.62, secs) + 0.1), polar(-1.8, ai, rI)], 0.007, 24, 6));
+  }
+
+  /* ── на корпусе вентилятора: маслобак, топливно-масляный теплообменник, блок регулятора ── */
+  {
+    const rc = rAt(-0.3, secs);
+    // маслобак (к борту): мерное стекло, заливная горловина, суфлёр
+    add("comp", "unit", onCasing(rbox(0.34, 0.06, 0.19, 0.02, 0, 0, 0), -0.3, 4.02, rc + 0.036));
+    add("comp", "chrome", onCasing(new THREE.CylinderGeometry(0.016, 0.016, 0.012, 14), -0.22, 4.02, rc + 0.07));
+    add("comp", "unitDark", mergeAll([onCasing(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 14), -0.4, 3.97, rc + 0.078), onCasing(new THREE.CylinderGeometry(0.028, 0.028, 0.012, 6), -0.4, 3.97, rc + 0.096)]));
+    add("comp", "pipe", tube([polar(-0.46, 4.1, rc + 0.05), polar(-0.56, 4.15, rc + 0.04), polar(-0.64, 4.2, rAt(-0.64, secs) + 0.03)], 0.007, 12, 6));
+    // теплообменник: цилиндр с крышками и патрубками
+    const a2 = 2.26, R2 = rc + 0.058, y2 = Math.cos(a2) * R2, z2 = Math.sin(a2) * R2;
+    add("comp", "unit", mergeAll([cyl(0.042, 0.042, 0.3, "x", -0.26, y2, z2, 18), cyl(0.047, 0.047, 0.025, "x", -0.11, y2, z2, 18), cyl(0.047, 0.047, 0.025, "x", -0.41, y2, z2, 18)]));
+    add("comp", "bolts", mergeAll([-0.11, -0.41].flatMap((x) => Array.from({ length: 8 }, (_, k) => { const t = (k / 8) * TAU; return cyl(0.004, 0.004, 0.03, "x", x, y2 + Math.cos(t) * 0.04, z2 + Math.sin(t) * 0.04, 5); }))));
+    for (const x of [-0.16, -0.36]) add("comp", "pipe", tube([polar(x, a2 - 0.04, R2 + 0.03), polar(x, a2 - 0.12, R2 + 0.02), polar(x - 0.05, a2 - 0.22, rc + 0.025)], 0.008, 10, 6));
+    add("comp", "clamp", mergeAll([-0.18, -0.34].map((x) => onCasing(new THREE.BoxGeometry(0.02, 0.05, 0.1), x, a2, rc + 0.02))));
+    // блок регулятора с рёбрами и разъёмами (выше, у бокового борта)
+    const a3 = 1.72;
+    add("comp", "unitDark", onCasing(rbox(0.26, 0.05, 0.15, 0.01, 0, 0, 0), -0.36, a3, rc + 0.032));
+    add("comp", "unitDark", mergeAll(Array.from({ length: 9 }, (_, k) => onCasing(new THREE.BoxGeometry(0.24, 0.016, 0.004), -0.36, a3 - 0.14 + k * 0.035, rc + 0.064))));
+    add("comp", "olive", mergeAll([-0.46, -0.38, -0.3].map((x) => onCasing(new THREE.CylinderGeometry(0.017, 0.017, 0.04, 12), x, a3 + 0.19, rc + 0.04))));
+    add("comp", "harness", tube([polar(-0.46, a3 + 0.22, rc + 0.06), polar(-0.58, a3 + 0.35, rc + 0.06), polar(-0.8, 2.9, rAt(-0.8, secs) + 0.045)], 0.009, 14, 6));
+    // продольные рёбра корпуса вентилятора и табличка
+    add("comp", "casing", mergeAll(Array.from({ length: 20 }, (_, k) => onCasing(new THREE.BoxGeometry(0.58, 0.012, 0.009), -0.31, (k / 20) * TAU + 0.08, rAt(-0.31, secs) + 0.004))));
+    add("comp", "bolts", onCasing(new THREE.BoxGeometry(0.1, 0.004, 0.06), -0.12, 2.75, rc + 0.012));
+  }
+
+  /* ── смотровые лючки (бороскоп) с пробками, коллекторы охлаждения турбины, дренаж ── */
+  {
+    const bs = [];
+    for (const [x, a] of [[-0.98, 2.62], [-1.16, 3.72], [-1.4, 2.95], [-2.05, 2.5], [-2.2, 3.9], [-1.88, 3.2]]) {
+      const rc = rAt(x, secs);
+      bs.push(onCasing(new THREE.CylinderGeometry(0.016, 0.018, 0.02, 12), x, a, rc + 0.008), onCasing(new THREE.CylinderGeometry(0.013, 0.013, 0.012, 6), x, a, rc + 0.024));
+    }
+    add("comp", "bolts", mergeAll(bs.slice(0, 8))); add("turb", "bolts", mergeAll(bs.slice(8)));
+    for (const x of [-2.18, -2.38]) add("turb", "pipe", torus(rAt(x, secs) + 0.045, 0.009, "x", x, 0, 0, 6, seg + 8));
+    const sp = [];
+    for (const x of [-2.18, -2.38]) for (let k = 0; k < 10; k++) { const a = (k / 10) * TAU + 0.3; sp.push(rodBetween(polar(x, a, rAt(x, secs)), polar(x, a, rAt(x, secs) + 0.04), 0.004, 4)); }
+    add("turb", "clamp", mergeAll(sp));
+    // дренажный коллектор снизу за турбиной
+    const xd = -2.72, rd = rAt(xd, secs);
+    add("turb", "unit", onCasing(rbox(0.1, 0.04, 0.08, 0.008, 0, 0, 0), xd, Math.PI, rd + 0.03));
+    for (const [x, a] of [[-1.7, 2.8], [-1.9, 3.5], [-2.3, 2.9], [-2.45, 3.4]]) add("turb", "pipe", tube([polar(x, a, rAt(x, secs) + 0.02), polar((x + xd) / 2, (a + Math.PI) / 2, rAt((x + xd) / 2, secs) + 0.03), polar(xd + 0.04, Math.PI + (a - Math.PI) * 0.15, rd + 0.04)], 0.0045, 14, 5));
+    add("turb", "pipe", tube([polar(xd, Math.PI, rd + 0.05), polar(xd - 0.02, Math.PI, rd + 0.1)], 0.006, 4, 6));
   }
 
   /* ── форсажная камера и сопло (запасной двигатель) ── */

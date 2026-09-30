@@ -193,11 +193,14 @@ export function sphere(r, x, y, z, sx = 1, sy = 1, sz = 1, ws = 16, hs = 12) {
 
 /* объединение геометрий с приведением атрибутов (position/normal/uv, без индекса) */
 export function mergeAll(list) {
-  const prepared = list.filter(Boolean).map((g) => {
+  const src = list.filter(Boolean);
+  const keep = ["position", "normal", "uv"];
+  if (src.length && src.every((g) => g.attributes.color)) keep.push("color");      // цвета вершин (побежалость и т.п.)
+  const prepared = src.map((g) => {
     let q = g.index ? g.toNonIndexed() : g;
     if (!q.attributes.normal) q.computeVertexNormals();
     if (!q.attributes.uv) q.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(q.attributes.position.count * 2), 2));
-    for (const k of Object.keys(q.attributes)) if (!["position", "normal", "uv"].includes(k)) q.deleteAttribute(k);
+    for (const k of Object.keys(q.attributes)) if (!keep.includes(k)) q.deleteAttribute(k);
     q.morphAttributes = {};
     return q;
   });

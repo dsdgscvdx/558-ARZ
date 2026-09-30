@@ -1,5 +1,6 @@
-/* Рендер: WebGL2, HDR-композитинг (MSAA), GTAO, bloom, тональная компрессия AgX, финальная
-   цветокоррекция (виньетка, зерно, хроматическая аберрация, марево от сопел, вспышки/затемнения).
+/* Рендер: WebGL2, HDR-композитинг (MSAA), GTAO, bloom, тональная компрессия ACES, финальная
+   цветокоррекция (виньетка, зерно, хроматическая аберрация, резкость, тонирование, марево от сопел,
+   вспышки/затемнения), глубина резкости в режиме обзора.
    Пресеты качества переключаются на лету. */
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -12,8 +13,8 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 export const QUALITY = {
   low:    { name: "Низкое",   pr: 0.75, maxPr: 1,   shadow: 1024, sunShadow: true,  ao: false, bloom: false, msaa: 0, aniso: 4,  tex: 0.5,  second: false, dust: false, glass: false },
   medium: { name: "Среднее",  pr: 1,    maxPr: 1.25, shadow: 2048, sunShadow: true,  ao: false, bloom: true,  msaa: 4, aniso: 8,  tex: 0.75, second: false, dust: true,  glass: false },
-  high:   { name: "Высокое",  pr: 1,    maxPr: 1.5,  shadow: 2048, sunShadow: true,  ao: true,  bloom: true,  msaa: 4, aniso: 12, tex: 1,    second: true,  dust: true,  glass: true, aoScale: 0.5, reflect: 0.35 },
-  ultra:  { name: "Ультра",   pr: 1,    maxPr: 2,    shadow: 4096, sunShadow: true,  ao: true,  bloom: true,  msaa: 4, aniso: 16, tex: 1,    second: true,  dust: true,  glass: true, aoScale: 1, reflect: 0.5 },
+  high:   { name: "Высокое",  pr: 1,    maxPr: 1.5,  shadow: 2048, sunShadow: true,  ao: true,  bloom: true,  msaa: 4, aniso: 12, tex: 1,    second: true,  dust: true,  glass: true, aoScale: 0.5, reflect: 0.35, dof: true, sharp: 0.22, envSize: 256 },
+  ultra:  { name: "Ультра",   pr: 1,    maxPr: 2,    shadow: 4096, sunShadow: true,  ao: true,  bloom: true,  msaa: 4, aniso: 16, tex: 1,    second: true,  dust: true,  glass: true, aoScale: 1, reflect: 0.5, dof: true, sharp: 0.3, envSize: 256 },
 };
 
 const GradeShader = {
@@ -21,13 +22,13 @@ const GradeShader = {
     tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
     uVignette: { value: 0.32 }, uGrain: { value: 0.035 }, uCA: { value: 0.0018 },
     uHaze: { value: [new THREE.Vector4(0, 0, 0, 0), new THREE.Vector4(0, 0, 0, 0)] },
-    uFlash: { value: new THREE.Vector4(0, 0, 0, 0) }, uFade: { value: 0 }, uSat: { value: 1.04 }, uContrast: { value: 1.03 },
+    uFlash: { value: new THREE.Vector4(0, 0, 0, 0) }, uFade: { value: 0 }, uSat: { value: 1.06 }, uContrast: { value: 1.02 }, uSharp: { value: 0.15 },
   },
   vertexShader: /* glsl */ `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */ `
     uniform sampler2D tDiffuse; uniform float uTime; uniform vec2 uRes;
     uniform float uVignette; uniform float uGrain; uniform float uCA; uniform vec4 uHaze[2]; uniform vec4 uFlash; uniform float uFade;
-    uniform float uSat; uniform float uContrast;
+    uniform float uSat; uniform float uContrast; uniform float uSharp;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
     float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
@@ -50,7 +51,15 @@ const GradeShader = {
       col.r = texture2D(tDiffuse, uv + c * uCA * r2 * 4.0).r;
       col.g = texture2D(tDiffuse, uv).g;
       col.b = texture2D(tDiffuse, uv - c * uCA * r2 * 4.0).b;
+      // резкость: нерезкое маскирование по яркости (4 соседа)
+      if (uSharp > 0.0) {
+        vec2 px = 1.0 / uRes; vec3 W = vec3(0.2126, 0.7152, 0.0722);
+        float n = dot(texture2D(tDiffuse, uv + vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, uv - vec2(px.x, 0.0)).rgb + texture2D(tDiffuse, uv + vec2(0.0, px.y)).rgb + texture2D(tDiffuse, uv - vec2(0.0, px.y)).rgb, W) * 0.25;
+        col += clamp(dot(col, W) - n, -0.08, 0.08) * uSharp * 4.0;
+      }
       float l = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      // раздельное тонирование: тени чуть холоднее, света чуть теплее
+      col *= mix(vec3(0.975, 0.995, 1.03), vec3(1.025, 1.0, 0.975), smoothstep(0.15, 0.85, l));
       col = mix(vec3(l), col, uSat);
       col = (col - 0.5) * uContrast + 0.5;
       col *= 1.0 - uVignette * smoothstep(0.15, 0.85, r2 * 1.6);
@@ -61,13 +70,42 @@ const GradeShader = {
     }`,
 };
 
+/* глубина резкости: сбор по диску золотого угла, круг рассеяния из линейной глубины;
+   резкие точки переднего плана не «растекаются» на размытый фон */
+const DofShader = {
+  uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, cameraNear: { value: 0.05 }, cameraFar: { value: 900 }, uFocus: { value: 10 }, uAperture: { value: 0.9 }, uMaxBlur: { value: 7 }, uRes: { value: new THREE.Vector2(1, 1) } },
+  vertexShader: /* glsl */ `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: /* glsl */ `
+    #include <packing>
+    uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform float cameraNear; uniform float cameraFar;
+    uniform float uFocus; uniform float uAperture; uniform float uMaxBlur; uniform vec2 uRes;
+    varying vec2 vUv;
+    float vz(vec2 uv){ return -perspectiveDepthToViewZ(texture2D(tDepth, uv).x, cameraNear, cameraFar); }
+    float coc(float z){ return clamp(abs(z - uFocus) / max(z, 0.01) * uAperture, 0.0, 1.0); }
+    void main(){
+      vec4 base = texture2D(tDiffuse, vUv);
+      float z0 = vz(vUv), c0 = coc(z0);
+      float rad = c0 * uMaxBlur * (uRes.y / 1080.0);
+      if (rad < 0.6) { gl_FragColor = base; return; }
+      vec3 acc = base.rgb; float ws = 1.0;
+      for (int i = 0; i < 28; i++) {
+        float fi = float(i) + 0.5, r = sqrt(fi / 28.0), a = fi * 2.39996323;
+        vec2 uv = vUv + vec2(cos(a), sin(a)) * r * rad / uRes;
+        float z = vz(uv), c = coc(z);
+        float w = z < z0 * 0.97 ? smoothstep(0.0, 1.0, c * 3.0) : 1.0;       // резкий передний план не мажет фон
+        acc += texture2D(tDiffuse, uv).rgb * w; ws += w;
+      }
+      gl_FragColor = vec4(acc / ws, base.a);
+    }`,
+};
+
 export class Render {
   constructor(canvas) {
     this.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance", stencil: false });
     const r = this.renderer;
     r.outputColorSpace = THREE.SRGBColorSpace;
-    r.toneMapping = THREE.AgXToneMapping; r.toneMappingExposure = 1.0;
+    r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFShadowMap;
     this.maxAniso = r.capabilities.getMaxAnisotropy();
     this.scene = new THREE.Scene();
@@ -76,6 +114,8 @@ export class Render {
     this.q = QUALITY.high; this.qKey = "high";
     this.time = 0;
     this.exposure = 1;
+    this.exposureScale = 0.8;             // ACES ярче AgX, под который подбирались экспозиции сцен
+    this.dofState = { until: 0, focus: 10, aperture: 0.9 };
   }
   detectDefault() {
     const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || matchMedia("(pointer:coarse)").matches;
@@ -109,13 +149,17 @@ export class Render {
       this.gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
       this.gtao.blendIntensity = 0.85;
       this.composer.addPass(this.gtao);
-    }
+      // глубина резкости (режим обзора): по буферу глубины GTAO, до bloom — в линейном HDR
+      this.dof = null;
+      if (q.dof) { this.dof = new ShaderPass(DofShader); this.dof.uniforms.tDepth.value = this.gtao.depthTexture; this.dof.enabled = false; this.composer.addPass(this.dof); }
+    } else this.dof = null;
     if (q.bloom) {
       this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.14, 0.35, 6.0);
       this.composer.addPass(this.bloom);
     }
     this.composer.addPass(new OutputPass());
     this.grade = new ShaderPass(GradeShader);
+    this.grade.uniforms.uSharp.value = q.sharp || 0;
     this.composer.addPass(this.grade);
     this.resize(true);
   }
@@ -137,10 +181,11 @@ export class Render {
       const s = this.q.aoScale || 1;
       if (this.gtao) this.gtao.setSize(Math.round(w * pr * s), Math.round(h * pr * s));
       this.grade.uniforms.uRes.value.set(w * pr, h * pr);
+      if (this.dof) this.dof.uniforms.uRes.value.set(w * pr, h * pr);
     }
   }
   /* съёмка кубической карты окружения из точки (скрытые объекты не попадают в отражения) */
-  captureEnv(pos, hide = [], size = 256) {
+  captureEnv(pos, hide = [], size = this.q.envSize || 256) {
     const rt = new THREE.WebGLCubeRenderTarget(size, { type: THREE.HalfFloatType, generateMipmaps: false });
     const cc = new THREE.CubeCamera(0.1, 400, rt);
     cc.position.copy(pos);
@@ -159,7 +204,12 @@ export class Render {
   render(dt) {
     this.time += dt;
     if (this.grade) this.grade.uniforms.uTime.value = this.time;
-    this.renderer.toneMappingExposure = this.exposure;
+    this.renderer.toneMappingExposure = this.exposure * this.exposureScale;
+    if (this.dof) {
+      const d = this.dof.uniforms, st = this.dofState;
+      this.dof.enabled = (st.until || 0) > this.time && !!this.gtao; d.uFocus.value = st.focus; d.uAperture.value = st.aperture;
+      d.cameraNear.value = this.camera.near; d.cameraFar.value = this.camera.far;
+    }
     this.composer.render(dt);
   }
 }

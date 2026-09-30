@@ -102,7 +102,7 @@ export function buildPaintMaps(q = 1) {
     for (const x of [-4.6, -5.5, -6.3]) poly(topH, P, [[x, 0.62 * s], [x, 1.52 * s]], 0.009, 38);
     poly(topH, P, [[-4.6, 1.3 * s], [-6.4, 1.3 * s]], 0.008, 40);
     // хвостовая балка — верхний тормозной щиток
-    panel(topH, P, -6.75, 0.34 * s, -7.8, 0.02 * s, { scr: 0.06 });
+    panel(topH, P, -6.75, 0.34 * s, -7.6, 0.02 * s, { scr: 0.06 });
     // нижняя поверхность: капоты с замками, створки, лючки
     const nz = (x, t) => { const p = NAC(x); return (p.cz + p.w * Math.sign(Math.sin(t)) * Math.pow(Math.abs(Math.sin(t)), 2 / p.ns)) * s; };
     for (const t of [COWL.t0, COWL.t1]) {
@@ -130,7 +130,7 @@ export function buildPaintMaps(q = 1) {
   for (const s of [1, -1]) poly(topH, P, [[5.6, 0.36 * s], [-5.8, 0.38 * s]], 0.008, 44);
   // низ фюзеляжа
   for (const x of [5.6, 4.6, 1.8, 0.8, -1.6, -2.8, -4.2, -5.6]) poly(botH, P, [[x, -0.45], [x, 0.45]], 0.01, 34);
-  panel(botH, P, -6.8, -0.3, -7.8, 0.3, { scr: 0.06 });
+  panel(botH, P, -6.8, -0.3, -7.6, 0.3, { scr: 0.06 });
   panel(botH, P, 5.4, -0.25, 4.8, 0.25);
 
   /* ═════════ БОРТ (R — высоты) ═════════ */

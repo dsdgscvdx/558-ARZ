@@ -331,6 +331,22 @@ export function heatTintSet() {
   return { map: texFromCanvas(c, { flipY: false }), orm: ormTex(R, M, w, h) };
 }
 
+/* ══════════ стёганая теплоизоляция отсека двигателя: «подушки» фольги, прошитые крест-накрест ══════════ */
+export function quiltSet() {
+  const w = sz(256), h = sz(256), n = 4, cw = w / n, ch = h / n, rnd = mulberry32(71);
+  const H = new Float32Array(w * h), R = new Float32Array(w * h);
+  const crinkle = noiseField(64, 64, 16, 3, 72);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const u = (x % cw) / cw, v = (y % ch) / ch, i = y * w + x;
+    const pillow = Math.pow(Math.sin(Math.PI * u) * Math.sin(Math.PI * v), 0.45);
+    const cr = crinkle[((y * 64 / h) | 0) * 64 + ((x * 64 / w) | 0)];
+    H[i] = pillow * 0.9 + cr * 0.18;
+    R[i] = 0.28 + cr * 0.22 + (1 - pillow) * 0.2;
+  }
+  void rnd;
+  return { normal: dataTex(heightToNormal(H, w, h, 3.2), w, h), orm: ormTex(R, new Float32Array(w * h).fill(0.9), w, h) };
+}
+
 /* ══════════ цифровой камуфляж ВВС Беларуси (тайл) ══════════ */
 export function digitalCamo() {
   const S = sz(1024), rnd = mulberry32(2029);

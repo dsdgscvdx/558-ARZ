@@ -5,7 +5,8 @@ import { Sky } from "three/examples/jsm/objects/Sky.js";
 import { Batch, xform } from "./batch.js";
 import { box, rbox, cyl, torus, tube, sphere, place, mergeAll, latheX, range } from "./geo.js";
 import * as T from "./tex.js";
-import { jackGSE, chocks, apaTrailer, upgCart, kpaConsole, n2Cart, toolChest, workbench, tractorMTZ, engineStand, fireCart, intakePlug } from "./gse.js";
+import { jackGSE, chocks, apaTrailer, upgCart, kpaConsole, n2Cart, toolChest, workbench, engineStand, fireCart, intakePlug } from "./gse.js";
+import { tractorMTZ, airfieldTug, fireTruck } from "./vehicles.js";
 import { buildRD33, rd33Materials, rd33Meshes } from "./rd33.js";
 
 export const H = { x0: -30, x1: 30, z: 22, eave: 11, ridge: 14.5, doorW: 16, doorH: 10.5, lift: 0.06 };
@@ -580,13 +581,10 @@ export function buildWorld(L, TX, opts = {}) {
     for (const m of [dmesh, fmesh, cmesh]) { m.castShadow = m.receiveShadow = true; defl.add(m); }
     outside.add(defl);
     bo.colliders.push(box(3, 5, 18, PAD.x + 17.5, 2.5, 0));
-    // пожарная машина
-    const truck = new THREE.Group(); truck.position.set(PAD.x - 8, 0, -16); truck.rotation.y = 0.5;
-    const tm = [[rbox(6.5, 2.4, 2.5, 0.1, 0, 1.75, 0), L.red], [rbox(2.0, 2.0, 2.45, 0.1, 3.9, 1.55, 0), L.red], [place(new THREE.BoxGeometry(0.1, 0.8, 2.2), 4.92, 2.0, 0), L.glassDark], [box(6.6, 0.3, 2.55, 0, 0.55, 0), L.darkProp], [box(6.4, 0.08, 0.05, 0, 2.1, 1.27), L.whiteProp]];
-    for (const [x, z] of [[-2.2, -1.1], [0, -1.1], [3.8, -1.1], [-2.2, 1.1], [0, 1.1], [3.8, 1.1]]) tm.push([place(new THREE.TorusGeometry(0.4, 0.18, 12, 24), x, 0.5, z), L.tire]);
-    tm.push([cyl(0.1, 0.1, 0.18, "y", 3.9, 2.65, 0.6, 10), L.navRed], [cyl(0.1, 0.1, 0.18, "y", 3.9, 2.65, -0.6, 10), L.navBlue || L.navWhite]);
-    for (const [g, m] of tm) { const mm = new THREE.Mesh(g, m); mm.castShadow = mm.receiveShadow = true; truck.add(mm); }
-    outside.add(truck); dyn.fireTruck = truck;
+    // пожарная автоцистерна у газовочной площадки
+    { const m = xform(PAD.x - 8, 0, -16, 0.5); for (const [g, mt, o] of fireTruck(L)) bo.add(g, mt, { ...(o || {}), matrix: m }); }
+    // аэродромный тягач у ворот
+    { const m = xform(H.x1 + 7.5, 0, -12.5, 2.3); for (const [g, mt, o] of airfieldTug(L)) bo.add(g, mt, { ...(o || {}), matrix: m }); }
     // другие ангары и постройки вдали
     const bm = new THREE.MeshStandardMaterial({ color: "#aeb4b6", roughness: 0.85, metalness: 0.3, map: TX.corrugated.map, normalMap: TX.corrugated.normal });
     for (const [x, z, w, d, h] of [[150, -70, 50, 36, 10], [150, 60, 40, 30, 9], [60, -90, 30, 24, 7], [-60, 60, 60, 40, 10], [230, 0, 30, 60, 8]]) {

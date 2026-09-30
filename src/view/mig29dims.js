@@ -18,10 +18,10 @@ export const CORE = makeInterp([
   { x: -4.0, cy: 2.25, w: 0.57, ht: 0.28, hb: 0.42, nt: 2.4, nb: 2.8 },
   { x: -5.5, cy: 2.23, w: 0.57, ht: 0.20, hb: 0.30, nt: 2.6, nb: 2.8 },
   { x: -6.8, cy: 2.20, w: 0.55, ht: 0.12, hb: 0.20, nt: 2.8, nb: 2.8 },
-  { x: -7.85, cy: 2.18, w: 0.40, ht: 0.06, hb: 0.08, nt: 2.8, nb: 2.8 },
-  { x: -8.05, cy: 2.18, w: 0.12, ht: 0.02, hb: 0.03, nt: 2.6, nb: 2.6 },
+  { x: -7.62, cy: 2.18, w: 0.40, ht: 0.06, hb: 0.08, nt: 2.8, nb: 2.8 },
+  { x: -7.82, cy: 2.18, w: 0.12, ht: 0.02, hb: 0.03, nt: 2.6, nb: 2.6 },
 ]);
-export const CORE_X0 = 6.30, CORE_X1 = -8.05;
+export const CORE_X0 = 6.30, CORE_X1 = -7.82;
 
 /* мотогондолы (правая; левая — зеркально). cz — центр по Z */
 export const NAC = makeInterp([
@@ -34,7 +34,7 @@ export const NAC = makeInterp([
   { x: -6.45, cy: 1.56, cz: 1.08, w: 0.475, ht: 0.475, hb: 0.475, nt: 2.0, nb: 2.0, ns: 2.0 },
 ]);
 export const NAC_X0 = 2.40, NAC_X1 = -6.45;
-export const INTAKE_SLOPE = 0.34;   // скос входа: верхняя кромка выдвинута вперёд
+export const INTAKE_SLOPE = 0.5;    // скос входа: верхняя кромка (клин торможения) выдвинута вперёд, ~27°
 
 /* наплыв + крыло: сечения вдоль размаха (правое), le/te — X кромок, y — плоскость хорд, t — толщина */
 const ANH = Math.tan(2.5 * DEG);
