@@ -9,6 +9,7 @@ import * as G from "./game/game.js";
 import * as A from "./audio.js";
 import { label, PT, ST } from "./game/data.js";
 import { $, clamp, esc } from "./util.js";
+import { initPlatform, setLoading, setGameplay } from "./platform.js";
 
 const V = VW.V;
 // ускоренный рейкаст (BVH) для прицела и выбора деталей
@@ -43,6 +44,7 @@ let lastT = 0, fpsAcc = 0, fpsN = 0;
 /* ═════════════ загрузка ═════════════ */
 async function boot(hotData) {
   const setP = (k, t) => { $("loadBar").style.width = Math.round(k * 100) + "%"; $("loadingT").textContent = t; };
+  initPlatform(); setLoading(true);
   try {
     const probe = new THREE.WebGLRenderer({ canvas: document.createElement("canvas") });
     probe.dispose();
@@ -84,6 +86,7 @@ async function boot(hotData) {
   requestAnimationFrame(loop);
   window.__game = { V, G, player: () => player, setMode, mode: () => mode, THREE, VW };   // для отладки
   window.ready = true;
+  setLoading(false);
 }
 function confirmNew() {
   return new Promise((res) => {
@@ -550,6 +553,7 @@ function loop(t) {
   requestAnimationFrame(loop);
   const dt = Math.min(0.05, (t - lastT) / 1000 || 0); lastT = t;
   const time = t / 1000;
+  setGameplay(mode !== "menu" && $("resume").hidden && !document.hidden);   // площадке: игра идёт / пауза
   V.R.resize();
   // ввод
   const walkish = mode === "walk" || mode === "seat";

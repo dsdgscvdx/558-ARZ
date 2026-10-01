@@ -7,6 +7,7 @@ import {
 import { rnd, rint, pick, gauss, clamp, fmt, esc, $ } from "../util.js";
 import * as A from "../audio.js";
 import * as VW from "../view/view.js";
+import { happy } from "../platform.js";
 
 export let P = null;   // игрок
 export let S = null;   // активный наряд
@@ -663,8 +664,9 @@ $("engSound").onclick = () => { A.setSound(!A.AU.on); $("engSound").textContent 
 
 /* ═════════════════════════ НАСТРОЙКА РЛС «ТОПАЗ» ═════════════════════════ */
 export let RD = null;
-const RCMD = { "ПИТАНИЕ": ["ПИТАНИЕ", "ПИТ", "POWER", "PWR"], "ПРОГРЕВ": ["ПРОГРЕВ", "ПРОГ", "WARM"], "ВСК": ["ВСК", "САМОКОНТРОЛЬ", "BIT"],
-  "ЭКВИВАЛЕНТ": ["ЭКВИВАЛЕНТ", "ЭКВ", "НАГРУЗКА", "LOAD"], "ИЗЛУЧЕНИЕ": ["ИЗЛУЧЕНИЕ", "ИЗЛ", "TX"], "СТАТУС": ["СТАТУС", "STATUS"], "СПРАВКА": ["СПРАВКА", "?", "HELP"] };
+// [команда, синонимы]: массив, а не объект — кириллические ключи объекта минификатор пишет без кавычек
+const RCMD = [["ПИТАНИЕ", ["ПИТАНИЕ", "ПИТ", "POWER", "PWR"]], ["ПРОГРЕВ", ["ПРОГРЕВ", "ПРОГ", "WARM", "WARMUP"]], ["ВСК", ["ВСК", "САМОКОНТРОЛЬ", "BIT"]],
+  ["ЭКВИВАЛЕНТ", ["ЭКВИВАЛЕНТ", "ЭКВ", "НАГРУЗКА", "LOAD", "DUMMY"]], ["ИЗЛУЧЕНИЕ", ["ИЗЛУЧЕНИЕ", "ИЗЛ", "TX", "RADIATE"]], ["СТАТУС", ["СТАТУС", "STATUS"]], ["СПРАВКА", ["СПРАВКА", "?", "HELP"]]];
 export function radarStart() {
   const miss = RADAR.filter((id) => !slot(id).on);
   if (miss.length) { modal("Настройка невозможна", `<p style="margin:0">Не установлены узлы: ${miss.map((id) => "«" + esc(label(id)) + "»").join(", ")}.</p>`, { narrow: true }); return; }
@@ -691,7 +693,7 @@ function renderR1() {
 function radarCmd(raw) {
   const t = raw.trim().toUpperCase(); if (!t) return;
   rline("КПА> " + t, "inv"); A.beep(1800, 0.02, 0.03);
-  const key = Object.keys(RCMD).find((k) => RCMD[k].includes(t)), st = RD.st;
+  const hit = RCMD.find(([, al]) => al.includes(t)), key = hit && hit[0], st = RD.st;
   const err = (m) => { RD.err++; rline(`ОТКАЗ: ${m}  [ошибок оператора ${RD.err}/5]`, "err");
     if (RD.err >= 5) { rline("КПА ЗАБЛОКИРОВАНА ПО ЧИСЛУ ОШИБОК ОПЕРАТОРА. Процедура прервана, время потрачено.", "err"); setTimeout(() => radarEnd(false, "КПА заблокирована по числу ошибок. Повторите настройку."), 1800); } };
   if (!key) return err("неизвестная команда — введите СПРАВКА");
@@ -852,7 +854,7 @@ function accept() {
   P.money += total; P.stats.earned += total; P.xp += xp; P.completed[m.id] = (P.completed[m.id] || 0) + 1;
   S = null; selectPart(null); save();
   const newR = rankIdx(), fin = m.final && !P.finalDone; if (fin) P.finalDone = true; save();
-  A.beep(880, 0.1, 0.06); setTimeout(() => A.beep(1320, 0.14, 0.06), 140);
+  A.beep(880, 0.1, 0.06); setTimeout(() => A.beep(1320, 0.14, 0.06), 140); happy();
   modal(`Акт № ${rint(100, 999)}/558 приёмки из ремонта`, `<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center">
       <div class="stamp">558 АРЗ · ОТК<br>ПРИНЯТО<br><small style="font-size:11px">ГОДЕН К ПОЛЁТАМ</small></div>
       <dl class="kv" style="flex:1;min-width:220px"><dt>Изделие</dt><dd>МиГ-29БМ № ${bortN}</dd><dt>Наряд</dt><dd>${esc(m.title)}</dd><dt>Исполнитель</dt><dd>${esc(P.name)}</dd><dt>Трудоёмкость</dt><dd class="num">${hours.toFixed(1)} из ${norm.toFixed(1)} нормо-ч</dd></dl></div>

@@ -7,6 +7,7 @@
   "scripts": {
     "build": "node tools/build.mjs",
     "watch": "node tools/build.mjs --watch",
+    "build:crazygames": "node tools/build.mjs --crazygames",
     "serve": "npx http-server dist -p 8080 -c-1"
   },
   "dependencies": {
