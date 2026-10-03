@@ -56,7 +56,11 @@ export function odds(G, T, bid) {
   if (bid && bid.v) {
     cands.push({ id: "us", us: true, price: bidUsd(G, T, bid), tech: techOf(G, bid.v), pol: polRu(G, PARTNER[T.partner]), offset: bid.offset || 0, fin: bid.fin, svc: bid.svc, months: bid.months || T.months });
   }
-  const prices = cands.map((c) => c.price).sort((a, b) => a - b);
+  // Ориентир цены для заказчика — цены конкурентов и справедливая (прейскурантная) цена нашего изделия,
+  // а не наша собственная заявка: иначе в прямых запросах цена не влияла бы на решение вплоть до бюджета.
+  const prices = cands.filter((c) => !c.us).map((c) => c.price);
+  if (bid && bid.v) prices.push(bidUsd(G, T, { ...bid, price: ourList(G, T, bid.v) }));
+  prices.sort((a, b) => a - b);
   const ref = prices.length ? prices[Math.floor(prices.length / 2)] : 1;
   const sc = cands.map((c) => scoreOf(G, T, c, ref));
   const none = T.direct ? 0.4 : -1.2;

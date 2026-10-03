@@ -138,6 +138,8 @@ export function TenderModal({ id }) {
   const net = priceRub * (1 - pkg - bid.offset * 0.5);
   const margin = cost ? net / cost - 1 : 0;
   const total = priceRub * T.qty;
+  // шансы × прибыль по всей партии: цену выгодно двигать, пока это число растёт
+  const expProfit = so ? so.p * T.qty * (net - cost) : 0;
   const lo = Math.max(0.1, list * 0.6), hi = list * 1.4;
   const stepP = csto ? Math.max(1, Math.round(list / 200)) : list >= 100 ? 1 : list >= 10 ? 0.1 : 0.01;
   const fmtP = (x) => (csto ? rub(x) : usd(x));
@@ -199,7 +201,9 @@ export function TenderModal({ id }) {
                   <dt>Себестоимость единицы</dt><dd>{rub(cost)}</dd>
                   <dt>Нам после сопровождения и офсета</dt><dd>{rub(net)}</dd>
                   <dt>Рентабельность</dt><dd class={margin < 0 ? "down" : margin > 0.3 ? "up" : ""}>{pct(margin)}</dd>
+                  <dt>Ожидаемая прибыль</dt><dd class={expProfit < 0 ? "down" : ""}>{rub(expProfit)}</dd>
                 </div>
+                <div class="small muted" style="margin-top:6px">Ожидаемая прибыль — шансы на победу × прибыль по всей партии. Выгоднее всего цена, при которой она максимальна.</div>
               </div>
             </>
           )}

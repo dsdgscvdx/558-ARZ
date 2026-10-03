@@ -6,7 +6,7 @@ import { ENT } from "../data/enterprises.js";
 import { STOCK_ONLY } from "../data/products.js";
 import { FAM, VAR, compsOf, matCost, unlocked, isComp } from "./catalog.js";
 import { capacity, payroll } from "./workforce.js";
-import { spend, cfAdd, plAdd, logF, odLimit } from "./finance.js";
+import { spend, cfAdd, plAdd, logF, odLimit, fxValue } from "./finance.js";
 import { sum } from "./util.js";
 
 /* ── спрос: незакрытые заказы по вариантам и потребность в двигателях */
@@ -96,7 +96,8 @@ export function stepProduction(G) {
   // минимальный остаток денег, ниже которого автоплан не запускает новые изделия (резерв на зарплату)
   const reserve = sum(Object.values(G.ents), (e) => payroll(e)) * 0.25;
   const odNow = sum(G.loans.filter((l) => l.kind === "od"), (l) => l.amt);
-  const odRoom = Math.max(0, odLimit(G) * 0.7 - odNow);
+  // валюта на счетах тоже доступна: при нехватке рублей она продаётся в конце месяца (finance.overdraft)
+  const odRoom = Math.max(0, odLimit(G) * 0.7 - odNow) + fxValue(G) * 0.94;
   for (const e of ents) {
     const { cap, prodF } = capacity(G, e);
     e.cap = cap; e.prodF = prodF;

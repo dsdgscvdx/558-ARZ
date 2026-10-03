@@ -200,8 +200,24 @@ export function sumPL(a, b) { const o = {}; for (const k of PL_KEYS) o[k] = (a[k
 export function sumCF(a, b) { const o = {}; for (const k of CF_KEYS) o[k] = (a[k] || 0) + (b[k] || 0); return o; }
 
 /* Овердрафт: при нехватке денег банк автоматически кредитует под ключевую + 6%; при излишке — гасится первым */
+/* Когда рублей не хватает, казначейство сначала продаёт валюту (рупии — последними, с дисконтом),
+   и только потом берёт овердрафт. Иначе выключенная автопродажа валюты вела бы к неплатежам при полных валютных счетах. */
+const FX_ORDER = ["USD", "EUR", "CNY", "AED", "INR"];
+function coverFromFx(G, need) {
+  let got = 0;
+  for (const cur of FX_ORDER) {
+    if (got >= need - 0.01) break;
+    if (!(G.fx[cur] > 0)) continue;
+    const net = rate(G, cur) * (1 - (cur === "INR" ? INR_DISCOUNT : 0.003));
+    got += convertFx(G, cur, Math.min(G.fx[cur], (need - got) / net)) * net;
+  }
+  if (got > 0.5) logF(G, `Рублей не хватало на платежи: продано валюты на ${fmtM(got)}.`, "fin");
+  return got;
+}
 export function overdraft(G) {
   let od = G.loans.find((l) => l.kind === "od");
+  const short = Math.max(0, -G.cash) + (od ? od.amt : 0);
+  if (short > 0 && fxValue(G) > 0) coverFromFx(G, short);
   if (G.cash < 0) {
     const need = -G.cash;
     if (!od) { od = { id: nextId(G, "L"), bank: "od", kind: "od", amt: 0, spread: 6, left: 999, t0: G.t }; G.loans.push(od); }
